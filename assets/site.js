@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { href: 'validation.html', label: 'Validation' },
   { href: 'docs.html',       label: 'Docs' },
   { href: 'research.html',   label: 'Research' },
+  { href: 'forum.html',      label: 'Forum' },
   { href: 'about.html',      label: 'About' },
 ];
 
@@ -62,6 +63,7 @@ function buildFooter() {
         <a href="validation.html">Validation</a>
         <a href="docs.html">Documentation</a>
         <a href="research.html">Research</a>
+        <a href="forum.html">Forum</a>
       </div>
       <div>
         <h4>Project</h4>
