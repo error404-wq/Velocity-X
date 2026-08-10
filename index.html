@@ -222,8 +222,8 @@ async def run_simulation(event):
         display(fig, target="plot-container", append=False)
         
         # Render Frames
-        fps = 30.0
-        duration = 1.0
+        fps = 15.0
+        duration = 0.5
         frame_times = np.arange(0, duration, 1.0 / fps)
         
         status.innerText = f"Status: Rendering physics ({len(frame_times)} frames)..."
@@ -231,11 +231,10 @@ async def run_simulation(event):
         
         frames = []
         for i, t in enumerate(frame_times):
-            img, _ = render_blurred(scene, cam, traj, t, exposure=0.010, n_samples=4, duration=duration)
+            img, _ = render_blurred(scene, cam, traj, t, exposure=0.010, n_samples=3, duration=duration)
             frames.append(img)
-            if i % 5 == 0:
-                status.innerText = f"Status: Rendering frame {i}/{len(frame_times)}..."
-                await asyncio.sleep(0.01)
+            status.innerText = f"Status: Rendering frame {i+1}/{len(frame_times)}..."
+            await asyncio.sleep(0.01)
                 
         status.innerText = "Status: Playing video..."
         
