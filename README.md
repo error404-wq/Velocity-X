@@ -3,7 +3,7 @@
 An open drone simulator for visual-inertial odometry research under aggressive flight,
 with ground truth that is **exact by construction** rather than measured.
 
-**[→ Launch it in your browser](https://error404-wq.github.io/vio_simulator/)** — nothing to install.
+**[→ Launch it in your browser](https://error404-wq.github.io/Velocity-X/)** — nothing to install.
 
 ---
 
@@ -34,12 +34,12 @@ derivatives are exact at every frequency.
 | Event generation | Modelled — **not calibrated against a real sensor** |
 
 That last row matters. Conclusions that depend on the event model are assumptions, not
-measurements. See [Validation](https://error404-wq.github.io/vio_simulator/validation.html).
+measurements. See [Validation](https://error404-wq.github.io/Velocity-X/validation.html).
 
 ## Install
 
 ```bash
-git clone https://github.com/ayushsankar12/Velocity-X.git
+git clone https://github.com/error404-wq/Velocity-X.git
 cd vio_simulator
 pip install numpy scipy opencv-python
 ```
@@ -62,7 +62,7 @@ p = traj.position(np.array([0.5]))[0]
 image, depth = render(scene, cam, R, p)   # depth is metric, per-pixel, exact
 ```
 
-Full API in the [documentation](https://error404-wq.github.io/vio_simulator/docs.html).
+Full API in the [documentation](https://error404-wq.github.io/Velocity-X/docs.html).
 
 ## Site layout
 
