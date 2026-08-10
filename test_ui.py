@@ -10,7 +10,7 @@ import threading
 
 from playwright.sync_api import sync_playwright
 
-PORT = 8042
+PORT = 8055
 PAGES = ['index.html', 'simulator.html', 'validation.html',
          'docs.html', 'research.html', 'about.html']
 

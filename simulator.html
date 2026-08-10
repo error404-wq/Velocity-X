@@ -315,6 +315,11 @@ bind('noise', 'noise-val');
 bind('seed', 'seed-val');
 
 /* download helpers, called from Python */
+window.paintCanvas = (id, buf, w, h) => {
+  const c = document.getElementById(id); if (!c) return;
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  c.getContext('2d').putImageData(new ImageData(buf, w, h), 0, 0);
+};
 window.downloadText = (name, text, mime) => {
   const b = new Blob([text], { type: mime || 'text/plain' });
   const a = document.createElement('a');
@@ -342,23 +347,20 @@ setTimeout(() => {
 </script>
 
 <py-config>
-  packages = ["numpy", "opencv-python"]
+  packages = ["numpy"]
   [[fetch]]
-  files = ["sim/__init__.py", "sim/scene.py", "sim/sensors.py", "sim/trajectory.py", "sim/worlds.py"]
+  files = ["sim_lite.py"]
 </py-config>
 
 <script type="py">
-import asyncio, base64, io
+import asyncio
 import numpy as np
-import cv2
 import js
 from js import document
 from pyscript import when
 
-from sim.scene import Camera, render
-from sim.sensors import render_blurred
-from sim.trajectory import Trajectory, ImuModel
-from sim.worlds import add_obstacles, corridor
+from sim_lite import (Camera, render, render_blurred, Trajectory,
+                      ImuModel, add_obstacles, corridor)
 
 # Blue sequential ramp (single hue, light -> dark) for the depth map.
 # A rainbow map would misrepresent magnitude ordering, so it is deliberately avoided.
@@ -387,18 +389,16 @@ def colourise_depth(depth):
     return out, lo, hi
 
 
-def blit(canvas_id, img):
-    """Push an image to a canvas as a base64 PNG."""
-    ok, buf = cv2.imencode('.png', img)
-    if not ok:
-        return
-    b64 = base64.b64encode(buf).decode('utf-8')
-    js.eval(
-        "(function(){let i=new Image();"
-        "i.onload=function(){document.getElementById('%s')"
-        ".getContext('2d').drawImage(i,0,0);};"
-        "i.src='data:image/png;base64,%s';})();" % (canvas_id, b64)
-    )
+def blit(canvas_id, rgb):
+    """Write pixels straight to the canvas. Avoids PNG encoding (and OpenCV)."""
+    h, w = rgb.shape[:2]
+    if rgb.ndim == 2:
+        rgb = np.repeat(rgb[:, :, None], 3, axis=2)
+    rgba = np.empty((h, w, 4), np.uint8)
+    rgba[:, :, :3] = rgb
+    rgba[:, :, 3] = 255
+    js.window.paintCanvas(canvas_id, js.Uint8ClampedArray.new(
+        bytearray(rgba.tobytes())), w, h)
 
 
 def set_status(text, kind=''):
@@ -470,7 +470,7 @@ async def run_simulation(event):
         frames, depths = [], []
         for i, t in enumerate(times):
             img, dep = render_blurred(scene, cam, traj, float(t),
-                                      exposure=exposure, n_samples=4,
+                                      exposure=exposure, n_samples=3,
                                       duration=duration)
             frames.append(img)
             depths.append(dep)
@@ -486,7 +486,7 @@ async def run_simulation(event):
         for i, (img, dep) in enumerate(zip(frames, depths)):
             blit('video-canvas', img)
             rgbd, _, _ = colourise_depth(dep)
-            blit('depth-canvas', cv2.cvtColor(rgbd, cv2.COLOR_RGB2BGR))
+            blit('depth-canvas', rgbd)
             set_progress(0.8 + 0.2 * (i + 1) / len(frames))
             await asyncio.sleep(1.0 / fps)
 
