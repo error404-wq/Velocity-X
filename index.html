@@ -1,263 +1,200 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perfect VIO Simulator</title>
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at top left, #1e293b, #0f172a);
-            color: #f8fafc;
-            margin: 0;
-            padding: 40px 20px;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-        }
-        .container {
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 30px;
-            max-width: 1200px;
-            width: 100%;
-        }
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(16px);
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-        }
-        h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-top: 0;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, #38bdf8, #818cf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        p {
-            font-size: 14px;
-            color: #94a3b8;
-            line-height: 1.6;
-        }
-        label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #e2e8f0;
-            margin-bottom: 8px;
-            margin-top: 20px;
-        }
-        input[type=range] {
-            width: 100%;
-            accent-color: #38bdf8;
-        }
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 25px;
-            margin-bottom: 25px;
-        }
-        .checkbox-container input {
-            width: 18px;
-            height: 18px;
-            accent-color: #38bdf8;
-        }
-        .checkbox-container label {
-            margin: 0;
-            cursor: pointer;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            background: linear-gradient(90deg, #0284c7, #2563eb);
-            color: white;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-bottom: 15px;
-        }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
-        }
-        button:disabled {
-            background: #334155;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        #status {
-            font-size: 13px;
-            color: #fbbf24;
-            font-family: monospace;
-            text-align: center;
-        }
-        .visuals {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            align-items: center;
-            width: 100%;
-        }
-        #canvas-container {
-            background: #000;
-            border-radius: 12px;
-            padding: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            border: 1px solid rgba(255,255,255,0.05);
-            display: inline-block;
-        }
-        canvas {
-            border-radius: 8px;
-            display: block;
-        }
-        #plot-container {
-            width: 100%;
-            max-width: 800px;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        @media (max-width: 800px) {
-            .container { grid-template-columns: 1fr; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIO Simulator — exact ground truth for aggressive flight</title>
+<meta name="description" content="An open drone simulator for visual-inertial odometry research. Analytic depth exact to 4.4e-16 m, angular rate as a controlled variable, physically integrated motion blur, and a real equidistant fisheye model.">
+<meta name="author" content="Ayush Sankar">
+<meta property="og:title" content="VIO Simulator — exact ground truth for aggressive flight">
+<meta property="og:description" content="Test VIO algorithms against ground truth that is exact by construction, not measured. Runs in your browser.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Controls -->
-        <div class="glass-panel">
-            <h1>VIO Simulator</h1>
-            <p>Generate analytic ground truth and physically realistic sensor data to evaluate algorithms without benchmark confounds.</p>
+<div id="site-nav"></div>
 
-            <label>Peak Angular Rate: <span id="omega-val">2.0</span> rad/s</label>
-            <input type="range" id="omega" min="0.5" max="10.0" step="0.5" value="2.0" oninput="document.getElementById('omega-val').innerText=this.value">
-            
-            <label>Readout Noise (&sigma;): <span id="noise-val">5.0</span></label>
-            <input type="range" id="noise" min="0.0" max="20.0" step="1.0" value="5.0" oninput="document.getElementById('noise-val').innerText=this.value">
-            
-            <div class="checkbox-container">
-                <input type="checkbox" id="fisheye" checked>
-                <label for="fisheye">Equidistant Fisheye</label>
-            </div>
-            
-            <button id="run-btn">Run Simulation</button>
-            <div id="status">Ready</div>
-        </div>
+<main id="main">
 
-        <!-- Visuals -->
-        <div class="visuals">
-            <div id="canvas-container">
-                <canvas id="video-canvas" width="346" height="260"></canvas>
-            </div>
-            <div id="plot-container"></div>
-        </div>
+  <!-- hero -->
+  <section class="section" style="padding-top:70px;padding-bottom:44px">
+    <div class="wrap">
+      <span class="pill"><span class="pill-dot"></span> Runs in your browser — no install</span>
+      <h1 style="margin-top:18px;max-width:19ch">
+        Ground truth that is <span class="grad">exact by construction</span>
+      </h1>
+      <p class="lead">
+        A drone simulator built for visual-inertial odometry research under aggressive flight.
+        Depth, pose, and angular rate are computed analytically — not measured, not filtered,
+        not approximated. So when your algorithm is wrong, you know it is your algorithm.
+      </p>
+      <div class="btn-row" style="margin-top:26px">
+        <a class="btn btn-primary" href="simulator.html">Launch the simulator →</a>
+        <a class="btn btn-ghost" href="docs.html">Read the docs</a>
+      </div>
     </div>
+  </section>
 
-    <py-config>
-        packages = ["numpy", "scipy", "opencv-python", "matplotlib"]
-        [[fetch]]
-        files = ["sim/__init__.py", "sim/scene.py", "sim/sensors.py", "sim/trajectory.py", "sim/worlds.py"]
-    </py-config>
+  <!-- headline numbers -->
+  <section class="section-tight">
+    <div class="wrap">
+      <div class="grid grid-4">
+        <div class="card stat">
+          <div class="stat-value">4.4×10⁻¹⁶ m</div>
+          <div class="stat-label">Depth error — floating-point exact, verified</div>
+        </div>
+        <div class="card stat">
+          <div class="stat-value">688 °/s</div>
+          <div class="stat-label">Angular rate, as a controlled variable</div>
+        </div>
+        <div class="card stat">
+          <div class="stat-value">115°</div>
+          <div class="stat-label">Equidistant fisheye field of view</div>
+        </div>
+        <div class="card stat">
+          <div class="stat-value">1 kHz</div>
+          <div class="stat-label">IMU, calibrated to real in-flight noise</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <script type="py">
-import asyncio
-import pyodide
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-from js import document
-from pyscript import display, when
-from sim.scene import Camera
-from sim.sensors import render_blurred
-from sim.trajectory import Trajectory, ImuModel
-from sim.worlds import add_obstacles, corridor
-import base64
+  <!-- the problem -->
+  <section class="section">
+    <div class="wrap">
+      <div class="grid grid-2" style="gap:44px;align-items:start">
+        <div>
+          <h2>Why another simulator?</h2>
+          <p>
+            Aggressive-flight benchmarks record ground truth with motion-capture or
+            total-station rigs. Those references are excellent at low frequency and
+            heavily filtered at high frequency — which is precisely the band a drone
+            occupies when it is doing something interesting.
+          </p>
+          <p>
+            When the reference cannot resolve the motion, measured error stops being a
+            property of your algorithm and becomes a property of the yardstick. We
+            measured this directly: reference bandwidth below 5&nbsp;Hz can inflate
+            apparent gyroscope error by up to <strong>10×</strong> and manufacture
+            correlation between sensors whose errors are genuinely independent.
+          </p>
+          <p>
+            A simulator does not have that problem. The trajectory is a closed-form
+            function, so its derivatives are exact at every frequency.
+          </p>
+          <a class="btn btn-ghost" href="research.html">See the measurement →</a>
+        </div>
+        <div class="panel">
+          <h3 style="margin-bottom:14px">What is exact, and what is modelled</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Quantity</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Per-pixel depth</td><td>Exact (ray–plane, analytic)</td></tr>
+                <tr><td>Pose &amp; angular rate</td><td>Exact (closed form)</td></tr>
+                <tr><td>Projection &amp; lens</td><td>Exact (equidistant fisheye)</td></tr>
+                <tr><td>Motion blur</td><td>Integrated sub-exposures</td></tr>
+                <tr><td>IMU noise</td><td>Modelled — calibrated to real flight</td></tr>
+                <tr><td>Photon &amp; read noise</td><td>Modelled — standard sensor physics</td></tr>
+                <tr><td>Event generation</td><td>Modelled — <em>not</em> calibrated</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small muted" style="margin:14px 0 0">
+            The last row matters. Conclusions that depend on the event model are
+            assumptions, not measurements — and the docs say so.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-@when("click", "#run-btn")
-async def run_simulation(event):
-    status = document.getElementById("status")
-    btn = document.getElementById("run-btn")
-    btn.disabled = True
-    status.innerText = "Status: Initializing scene..."
-    
-    try:
-        omega = float(document.getElementById("omega").value)
-        noise = float(document.getElementById("noise").value)
-        use_fisheye = document.getElementById("fisheye").checked
-        
-        cam = Camera.davis346(noise_std=noise, use_fisheye=use_fisheye)
-        scene = add_obstacles(corridor(seed=42), count=8, seed=142)
-        traj = Trajectory(peak_omega=omega, omega_hz=0.6, speed=5.0)
-        
-        # Simulate IMU
-        status.innerText = "Status: Generating IMU data..."
-        await asyncio.sleep(0.01)
-        imu = ImuModel()
-        imu_data = imu.sample(traj, duration=1.0)
-        
-        # Plot IMU
-        plt.clf()
-        fig, ax = plt.subplots(figsize=(8, 3))
-        ax.plot(imu_data['t'], imu_data['gyro'][:, 1], label='Measured Gyro (Y)', color='#0ea5e9', alpha=0.7)
-        ax.plot(imu_data['t'], imu_data['gyro_true'][:, 1], label='Ground Truth (Y)', color='#f43f5e', linewidth=2)
-        ax.set_title("Inertial Data vs Analytic Ground Truth")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Angular Rate (rad/s)")
-        ax.legend()
-        plt.tight_layout()
-        display(fig, target="plot-container", append=False)
-        
-        # Render Frames
-        fps = 15.0
-        duration = 0.5
-        frame_times = np.arange(0, duration, 1.0 / fps)
-        
-        status.innerText = f"Status: Rendering physics ({len(frame_times)} frames)..."
-        await asyncio.sleep(0.1)
-        
-        frames = []
-        for i, t in enumerate(frame_times):
-            img, _ = render_blurred(scene, cam, traj, t, exposure=0.010, n_samples=3, duration=duration)
-            frames.append(img)
-            status.innerText = f"Status: Rendering frame {i+1}/{len(frame_times)}..."
-            await asyncio.sleep(0.01)
-                
-        status.innerText = "Status: Playing video..."
-        
-        for img in frames:
-            success, encoded_image = cv2.imencode('.png', img)
-            b64_str = base64.b64encode(encoded_image).decode('utf-8')
-            
-            js_code = f"""
-            let img = new Image();
-            img.onload = function() {{ document.getElementById('video-canvas').getContext('2d').drawImage(img, 0, 0); }};
-            img.src = 'data:image/png;base64,{b64_str}';
-            """
-            import js
-            js.eval(js_code)
-            await asyncio.sleep(1.0 / fps)
-            
-        status.innerText = "Simulation Complete."
-        
-    except Exception as e:
-        status.innerText = f"Error: {str(e)}"
-        print(e)
-    finally:
-        btn.disabled = False
-    </script>
+  <!-- capabilities -->
+  <section class="section" style="padding-top:12px">
+    <div class="wrap">
+      <h2>What it gives you</h2>
+      <p class="lead" style="margin-bottom:30px">Everything a VIO frontend needs, on the same clock, with the answer key attached.</p>
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-icon" aria-hidden="true">◎</div>
+          <h3>Analytic depth</h3>
+          <p>Scenes are piecewise-planar, so every pixel's depth comes from a closed-form ray–plane intersection. No z-buffer quantisation, no rasterisation error.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" aria-hidden="true">↻</div>
+          <h3>Angular rate you control</h3>
+          <p>Peak rate is an independent variable you sweep, not a property of a recording you happened to capture. Reproduce the same manoeuvre at 1 or 12&nbsp;rad/s.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" aria-hidden="true">◐</div>
+          <h3>Real motion blur</h3>
+          <p>Blur is produced by integrating true sub-exposures, so it varies across the image the way projective flow actually does — not a fixed convolution kernel.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" aria-hidden="true">⬡</div>
+          <h3>Fisheye optics</h3>
+          <p>An equidistant model with a ~115° field, matching the lenses racing drones actually fly. Pinhole assumptions break here — which is the point.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" aria-hidden="true">◈</div>
+          <h3>Inertial data</h3>
+          <p>Gyroscope and accelerometer with white noise and bias random walk, calibrated against measured in-flight noise rather than the datasheet.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" aria-hidden="true">⌁</div>
+          <h3>Event stream</h3>
+          <p>Log-intensity threshold model with refractory period and per-pixel threshold jitter, generated from high-rate renders.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- who it's for -->
+  <section class="section" style="padding-top:12px">
+    <div class="wrap">
+      <div class="panel">
+        <h2 style="margin-bottom:20px">Who this is for</h2>
+        <div class="grid grid-3">
+          <div>
+            <h3>VIO &amp; SLAM researchers</h3>
+            <p class="small">Separate estimator error from benchmark error. Sweep a single physical variable while everything else is held exactly fixed.</p>
+          </div>
+          <div>
+            <h3>Drone &amp; autonomy engineers</h3>
+            <p class="small">Ask what happens to your pipeline at 600&nbsp;°/s before you fly it there. Tune exposure, frame rate, and lens against measurable outcomes.</p>
+          </div>
+          <div>
+            <h3>Event-vision developers</h3>
+            <p class="small">Generate matched frame and event data over the same trajectory and scene, with per-pixel depth attached to every frame.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- cta -->
+  <section class="section" style="padding-top:12px">
+    <div class="wrap center">
+      <h2>Try it now — nothing to install</h2>
+      <p class="lead" style="margin:0 auto 26px">
+        The simulator runs entirely in your browser. Move a slider, watch the physics change.
+      </p>
+      <div class="btn-row" style="justify-content:center">
+        <a class="btn btn-primary" href="simulator.html">Launch the simulator →</a>
+        <a class="btn btn-ghost" href="https://github.com/error404-wq/vio_simulator" target="_blank" rel="noopener">View source ↗</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/site.js"></script>
 </body>
 </html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validation — VIO Simulator</title>
+<meta name="description" content="How the VIO Simulator is verified: exact ray-plane depth to 4.4e-16 m, SO(3) integration checks, IMU noise calibrated to real flight, and blur physics matched against recorded data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main id="main" class="wrap section" style="padding-top:40px">
+
+  <h1>Validation</h1>
+  <p class="lead">
+    A simulator is only worth using if you can say precisely what it gets right and
+    where it stops being trustworthy. This page is that statement.
+  </p>
+
+  <div class="notice">
+    <p class="small" style="margin:0">
+      <strong>The principle:</strong> quantities derived from geometry are exact and are
+      verified numerically. Quantities that depend on a sensor model are only as good as
+      that model — and each one below says which it is.
+    </p>
+  </div>
+
+  <!-- geometry -->
+  <section style="margin-top:44px">
+    <h2>1 · Geometry is exact, and checked</h2>
+    <p>
+      Scenes are built from textured planes, so a pixel's depth is the closed-form solution of a
+      ray–plane intersection. There is no depth buffer and no rasterisation, so there is nothing
+      to quantise.
+    </p>
+    <p>
+      The check does not take that on faith. It renders a scene, un-projects each pixel using the
+      reported depth, transforms the resulting point into world coordinates, and measures its
+      distance from the plane it should lie on.
+    </p>
+    <div class="grid grid-3" style="margin:22px 0">
+      <div class="card stat">
+        <div class="stat-value">4.4×10⁻¹⁶ m</div>
+        <div class="stat-label">Worst-case deviation over 400 sampled pixels</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-value">0.0 m</div>
+        <div class="stat-label">Median deviation</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-value">100%</div>
+        <div class="stat-label">Pixels with valid depth in a closed scene</div>
+      </div>
+    </div>
+    <p class="small muted">
+      4.4×10⁻¹⁶ is double-precision epsilon at metre scale. The geometry is exact to the limits of
+      the number format.
+    </p>
+  </section>
+
+  <!-- rotation -->
+  <section style="margin-top:44px">
+    <h2>2 · Rotation is integrated on the manifold</h2>
+    <p>
+      Orientation comes from integrating angular velocity on SO(3) by composing incremental
+      rotations, not by accumulating a rotation vector. The naïve version is a common source of
+      silent error: it is fine over a millisecond and meaningless over a second at 12&nbsp;rad/s.
+    </p>
+    <p>
+      Self-consistency was confirmed by comparing the integrated trajectory against the analytic
+      one, and by checking that the residual falls with step size — the signature of discretisation
+      rather than a defect.
+    </p>
+    <div class="table-wrap" style="margin-top:18px">
+      <table>
+        <thead><tr><th>Integration rate</th><th class="num">Max deviation over 10 s</th></tr></thead>
+        <tbody>
+          <tr><td>500 Hz</td><td class="num">2.25×10⁻³ °</td></tr>
+          <tr><td>1000 Hz</td><td class="num">5.62×10⁻⁴ °</td></tr>
+          <tr><td>4000 Hz</td><td class="num">4.82×10⁻⁵ °</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:12px">
+      Error falls roughly with the square of the step, as second-order integration requires.
+    </p>
+  </section>
+
+  <!-- imu -->
+  <section style="margin-top:44px">
+    <h2>3 · Inertial noise is calibrated to real flight, not the datasheet</h2>
+    <p>
+      The obvious thing to do is take the gyroscope noise density from the IMU datasheet. On a
+      racing drone that is optimistic by nearly an order of magnitude, because the airframe
+      vibrates.
+    </p>
+    <p>
+      Measured against recorded flight, the effective in-flight noise density is
+      <strong>≈0.043&nbsp;rad/s/√Hz</strong> — about <strong>9×</strong> the 0.005 quoted for the
+      part. The simulator uses the measured figure. Using the datasheet would make every result
+      that depends on inertial accuracy quietly optimistic.
+    </p>
+    <div class="table-wrap" style="margin-top:18px">
+      <table>
+        <thead><tr><th>Horizon</th><th class="num">Simulated</th><th class="num">Recorded flight</th></tr></thead>
+        <tbody>
+          <tr><td>33 ms</td><td class="num">0.77°</td><td class="num">0.72°</td></tr>
+          <tr><td>1 s</td><td class="num">3.87°</td><td class="num">4.55°</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:12px">
+      Error growth follows H<sup>0.43</sup> in simulation against H<sup>0.47</sup> measured — both
+      consistent with angle random walk, which is the expected physics.
+    </p>
+  </section>
+
+  <!-- blur -->
+  <section style="margin-top:44px">
+    <h2>4 · Motion blur is integrated, not convolved</h2>
+    <p>
+      Under fast rotation, blur is not a single kernel applied to the whole image: the smear
+      direction and length differ at every pixel because projective flow does. The simulator
+      renders true sub-exposures across the shutter interval and integrates them, which reproduces
+      that spatial variation by construction.
+    </p>
+    <div class="table-wrap" style="margin-top:18px">
+      <table>
+        <thead><tr><th>Peak angular rate</th><th class="num">Blur at peak</th><th class="num">Sharpness retained</th></tr></thead>
+        <tbody>
+          <tr><td>0 rad/s</td><td class="num">0.00°</td><td class="num">100%</td></tr>
+          <tr><td>1 rad/s</td><td class="num">0.57°</td><td class="num">41%</td></tr>
+          <tr><td>2.6 rad/s</td><td class="num">1.49°</td><td class="num">25%</td></tr>
+          <tr><td>6 rad/s</td><td class="num">3.44°</td><td class="num">11%</td></tr>
+          <tr><td>12 rad/s</td><td class="num">6.88°</td><td class="num">5%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:12px">
+      Sharpness measured by variance of Laplacian. Recorded flight shows a comparable drop at
+      comparable rates, which is the cross-check that matters.
+    </p>
+  </section>
+
+  <!-- limits -->
+  <section style="margin-top:44px">
+    <h2>5 · Where it should not be trusted</h2>
+    <p>
+      Every simulator has a boundary. Being explicit about this one is more useful than claiming
+      it does not exist.
+    </p>
+    <div class="grid grid-2" style="margin-top:20px">
+      <div class="card">
+        <h3 style="color:#fbbf24">Event model is uncalibrated</h3>
+        <p class="small">
+          Event generation uses a standard log-intensity threshold model with plausible parameters,
+          but those parameters have <em>not</em> been fitted to a real event sensor — particularly
+          its low-light behaviour. Any conclusion whose answer depends on the event threshold model
+          is an assumption, not a measurement.
+        </p>
+      </div>
+      <div class="card">
+        <h3 style="color:#fbbf24">Scenes are piecewise-planar</h3>
+        <p class="small">
+          Exact depth is bought with planar geometry. There are no curved surfaces, no
+          non-Lambertian reflectance, no lighting changes, and no independently moving objects.
+          Texture is synthetic with natural spectral statistics, not photographs.
+        </p>
+      </div>
+      <div class="card">
+        <h3 style="color:#fbbf24">Absolute visual error is optimistic</h3>
+        <p class="small">
+          Rendered images lack the full range of real-world nuisance: rolling shutter, compression,
+          auto-exposure transients, lens flare. Expect simulated feature tracking to look somewhat
+          better than reality.
+        </p>
+      </div>
+      <div class="card">
+        <h3 style="color:#fbbf24">It complements real data, it does not replace it</h3>
+        <p class="small">
+          The right workflow is to develop and ablate here, where causes are separable, then
+          confirm on recorded flight. A result that appears only in simulation is a hypothesis.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-top:44px" class="center">
+    <div class="panel">
+      <h2>Reproduce any of this</h2>
+      <p class="lead" style="margin:0 auto 22px">
+        Every figure on this page comes from a script in the repository. None of it is asserted.
+      </p>
+      <div class="btn-row" style="justify-content:center">
+        <a class="btn btn-primary" href="docs.html">Run the checks yourself</a>
+        <a class="btn btn-ghost" href="https://github.com/error404-wq/vio_simulator" target="_blank" rel="noopener">Source ↗</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/site.js"></script>
+</body>
+</html>

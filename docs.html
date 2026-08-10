@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation — VIO Simulator</title>
+<meta name="description" content="Install and use the VIO Simulator: build scenes, define trajectories with angular rate as a controlled variable, render frames with exact depth, and generate IMU and event data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .doc-layout { display:grid; grid-template-columns: 210px 1fr; gap:40px; align-items:start; }
+  @media (max-width: 900px) { .doc-layout { grid-template-columns:1fr; } .toc { position:static !important; } }
+  .toc { position:sticky; top:88px; }
+  .toc h4 { font-size:.76rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-3); margin-bottom:10px; }
+  .toc a { display:block; padding:5px 0; font-size:.88rem; color:var(--text-2); }
+  .toc a:hover { color:var(--accent); text-decoration:none; }
+  h2 { scroll-margin-top: 84px; margin-top:46px; }
+  h3 { margin-top:28px; }
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main id="main" class="wrap section" style="padding-top:40px">
+  <h1>Documentation</h1>
+  <p class="lead">Get from clone to your first exact-depth frame in about two minutes.</p>
+
+  <div class="doc-layout" style="margin-top:38px">
+    <nav class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#install">Installation</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="#scenes">Scenes</a>
+      <a href="#trajectories">Trajectories</a>
+      <a href="#camera">Camera &amp; lens</a>
+      <a href="#imu">Inertial data</a>
+      <a href="#events">Event camera</a>
+      <a href="#sweeps">Parameter sweeps</a>
+      <a href="#conventions">Conventions</a>
+    </nav>
+
+    <div>
+      <h2 id="install">Installation</h2>
+      <p>Pure Python with three dependencies. No build step, no GPU, no ROS.</p>
+<pre><code>git clone https://github.com/error404-wq/vio_simulator.git
+cd vio_simulator
+pip install numpy scipy opencv-python</code></pre>
+      <p class="small muted">
+        Tested on Python 3.10+. The browser build runs the identical <code>sim/</code> package
+        through PyScript, so results match.
+      </p>
+
+      <h2 id="quickstart">Quick start</h2>
+      <p>Render one frame with its exact depth map:</p>
+<pre><code>import numpy as np
+from sim.scene import Camera, render
+from sim.worlds import corridor, add_obstacles
+from sim.trajectory import Trajectory
+
+cam   = Camera.davis346(noise_std=5.0, use_fisheye=True)
+scene = add_obstacles(corridor(seed=42), count=8, seed=142)
+traj  = Trajectory(peak_omega=4.0, omega_hz=0.6, speed=6.0)
+
+R = traj.rotation(np.array([0.5]), duration=2.0)[0]   # world-from-camera
+p = traj.position(np.array([0.5]))[0]
+
+image, depth = render(scene, cam, R, p)
+print(image.shape, depth.shape)
+print('depth range:', np.nanmin(depth), '-', np.nanmax(depth), 'm')</code></pre>
+      <p>
+        <code>depth</code> is metric, per-pixel, and analytic. Pixels seeing no surface are
+        <code>+inf</code>.
+      </p>
+
+      <h3>Adding motion blur</h3>
+<pre><code>from sim.sensors import render_blurred
+
+image, depth = render_blurred(scene, cam, traj, t_center=0.5,
+                              exposure=0.010, n_samples=8, duration=2.0)</code></pre>
+      <p class="small muted">
+        Blur is produced by integrating <code>n_samples</code> true sub-exposures across the
+        shutter. Raise it for smoother blur at higher cost; 8–16 is usually plenty.
+      </p>
+
+      <h2 id="scenes">Scenes</h2>
+      <p>
+        A scene is a list of textured planes. Planarity is what buys closed-form depth, so it is a
+        deliberate constraint rather than a shortcut.
+      </p>
+<pre><code>from sim.worlds import corridor, add_obstacles, natural_texture
+
+scene = corridor(length=30.0, width=6.0, height=3.0, seed=0)
+scene = add_obstacles(scene, count=10, seed=7)</code></pre>
+      <p>Custom geometry is a plane with two spanning vectors, in metres:</p>
+<pre><code>import numpy as np
+from sim.scene import Plane
+
+wall = Plane(
+    origin=np.array([-3.0, -1.5, 12.0]),
+    u_axis=np.array([6.0, 0.0, 0.0]),    # width
+    v_axis=np.array([0.0, 3.0, 0.0]),    # height
+    texture=natural_texture(512, alpha=1.2, seed=3),
+    name='back_wall')
+scene.add(wall)</code></pre>
+      <p class="small muted">
+        <code>natural_texture</code> synthesises a 1/f<sup>α</sup> spectrum, which matches natural
+        image statistics — so corner density and tracking behave realistically. Checkerboards and
+        white noise do not.
+      </p>
+
+      <h2 id="trajectories">Trajectories</h2>
+      <p>
+        Trajectories are defined by their <em>angular velocity</em>, which is then integrated on
+        SO(3). That is what makes peak angular rate an independent variable you can sweep, and it
+        means ground-truth angular velocity is exact rather than differentiated from poses.
+      </p>
+<pre><code>traj = Trajectory(
+    peak_omega=8.0,       # rad/s — the variable to sweep
+    omega_hz=0.6,         # how fast the manoeuvre oscillates
+    speed=12.0,           # m/s forward
+    lateral_amp=0.6,
+    broadband_rms=0.47,   # realistic high-frequency content, rad/s RMS
+)</code></pre>
+      <p>
+        <code>broadband_rms</code> adds attitude-loop and airframe content above 5&nbsp;Hz. Real
+        racing drones carry roughly 0.47&nbsp;rad/s RMS there. Leave it at zero for a clean
+        analytic manoeuvre; set it when high-frequency realism matters.
+      </p>
+
+      <h2 id="camera">Camera &amp; lens</h2>
+<pre><code>cam = Camera.davis346(noise_std=5.0, use_fisheye=True)
+print(cam.K)                       # intrinsics
+print(cam.width, cam.height)       # 346 x 260</code></pre>
+      <div class="notice notice-warn">
+        <p class="small" style="margin:0">
+          <strong>Lens model matters more than people expect.</strong> With
+          <code>use_fisheye=True</code> the camera is equidistant with a ~115° horizontal field.
+          Applying a pinhole intrinsic to those pixels is a real and easy mistake — in our own
+          earlier analysis it inflated measured rotation error by 61–73%. Undistort into
+          normalised coordinates before doing geometry.
+        </p>
+      </div>
+
+      <h2 id="imu">Inertial data</h2>
+<pre><code>from sim.trajectory import ImuModel
+
+imu = ImuModel(rate_hz=1000.0, gyro_noise_density=0.043).sample(traj, duration=2.0)
+
+imu['t']           # timestamps
+imu['gyro']        # measured, corrupted
+imu['gyro_true']   # exact truth
+imu['gyro_bias']   # the bias walk actually injected
+imu['accel'], imu['accel_true']</code></pre>
+      <p class="small muted">
+        Because the injected bias is returned, an estimator can be scored against exactly what it
+        was asked to recover — not against an approximation of it.
+      </p>
+
+      <h2 id="events">Event camera</h2>
+<pre><code>from sim.sensors import simulate_stream
+
+data = simulate_stream(scene, cam, traj, duration=1.0,
+                       frame_hz=30.0, event_render_hz=2000.0,
+                       contrast_threshold=0.20)
+
+data['frames'], data['depths']                      # synchronised frames + exact depth
+data['ev_x'], data['ev_y'], data['ev_t'], data['ev_p']   # event stream</code></pre>
+      <div class="notice notice-warn">
+        <p class="small" style="margin:0">
+          The event model is <strong>not calibrated against a real sensor</strong>. Its threshold,
+          refractory period and jitter are plausible defaults. Treat conclusions that hinge on
+          those parameters as assumptions — see <a href="validation.html">Validation</a>.
+        </p>
+      </div>
+
+      <h2 id="sweeps">Parameter sweeps</h2>
+      <p>The reason to use a simulator: change one thing and hold everything else exactly fixed.</p>
+<pre><code>for peak in [1.0, 2.0, 4.0, 8.0, 12.0]:
+    traj = Trajectory(peak_omega=peak, omega_hz=0.6, speed=6.0)
+    img, depth = render_blurred(scene, cam, traj, 0.5,
+                                exposure=0.010, n_samples=8, duration=2.0)
+    # scene, texture, seed, lens and noise are unchanged;
+    # only angular rate differs, so any difference is attributable to it.</code></pre>
+
+      <h2 id="conventions">Conventions</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Convention</th></tr></thead>
+          <tbody>
+            <tr><td>Handedness</td><td>Right-handed; camera looks down +Z, x right, y down (OpenCV)</td></tr>
+            <tr><td>Pose</td><td><code>(R_wc, t_wc)</code> — camera in world; <code>X_cam = R_wcᵀ (X_world − t_wc)</code></td></tr>
+            <tr><td>Depth</td><td>Camera-frame Z in metres; <code>+inf</code> where nothing is visible</td></tr>
+            <tr><td>Angular velocity</td><td>Body frame, rad/s</td></tr>
+            <tr><td>Units</td><td>Metres, seconds, radians throughout</td></tr>
+            <tr><td>Images</td><td><code>uint8</code> grayscale, shape <code>(H, W)</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel" style="margin-top:40px">
+        <h3>Something unclear or missing?</h3>
+        <p class="small" style="margin-bottom:16px">
+          Documentation gaps are bugs. Open an issue and it will get fixed.
+        </p>
+        <a class="btn btn-ghost" href="https://github.com/error404-wq/vio_simulator/issues" target="_blank" rel="noopener">Open an issue ↗</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/site.js"></script>
+</body>
+</html>

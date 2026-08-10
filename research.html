@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research — VIO Simulator</title>
+<meta name="description" content="Findings produced with the VIO Simulator: ground-truth bandwidth as an evaluation confound, the fisheye geometry trap, and in-flight gyroscope noise measured at 9x datasheet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main id="main" class="wrap section" style="padding-top:40px">
+
+  <h1>Research</h1>
+  <p class="lead">
+    Findings that came out of building this simulator. Several were surprises, and a
+    couple overturned earlier conclusions of our own.
+  </p>
+
+  <!-- finding 1 -->
+  <article class="panel" style="margin-top:36px">
+    <span class="pill">Methodology</span>
+    <h2 style="margin-top:14px">Reference bandwidth is a first-class benchmark parameter</h2>
+    <p>
+      Motion benchmarks record ground truth with motion-capture or total-station rigs, and
+      everyone treats that reference as effectively exact. Measured spectrally, the reference
+      orientation on the aggressive-flight sequences we examined is heavily low-pass filtered —
+      retaining almost nothing above 15&nbsp;Hz — while the vehicle genuinely carries angular-rate
+      content well beyond that, and the camera is evaluated at 30&nbsp;Hz.
+    </p>
+    <p>
+      Because both the camera and the gyroscope observe the true motion but are scored against a
+      smoothed reference, the discarded motion becomes a <em>common error injected into both</em>.
+      In controlled simulation, degrading an exact reference reproduces the effect precisely.
+    </p>
+    <div class="table-wrap" style="margin:22px 0">
+      <table>
+        <thead>
+          <tr><th>Reference bandwidth</th><th class="num">Apparent gyro error</th><th class="num">Error correlation</th><th class="num">Error-vector angle</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2 Hz</td><td class="num">0.569°</td><td class="num">+0.599</td><td class="num">28°</td></tr>
+          <tr><td>10 Hz</td><td class="num">0.272°</td><td class="num">+0.127</td><td class="num">49°</td></tr>
+          <tr><td>20 Hz</td><td class="num">0.126°</td><td class="num">−0.072</td><td class="num">79°</td></tr>
+          <tr><td><strong>exact</strong></td><td class="num"><strong>0.109°</strong></td><td class="num"><strong>+0.023</strong></td><td class="num"><strong>83°</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Two things follow. Apparent sensor error inflates by up to <strong>10×</strong> at aggressive
+      rates. And a bandwidth-limited reference <strong>manufactures correlation between sensors
+      whose errors are genuinely independent</strong> — with an exact reference the error vectors
+      are 83° apart, which is orthogonal; at 2&nbsp;Hz they collapse to 28°.
+    </p>
+    <p style="margin-bottom:0">
+      That second effect is the damaging one, because it silently caps measured sensor-fusion gain.
+      A fusion study run against such a reference will conclude fusion does not help, when the
+      underlying errors were independent all along.
+    </p>
+  </article>
+
+  <!-- finding 2 -->
+  <article class="panel" style="margin-top:28px">
+    <span class="pill">Practice</span>
+    <h2 style="margin-top:14px">The fisheye trap</h2>
+    <p>
+      Racing drones fly wide lenses. The sensor modelled here is equidistant with a ~115°
+      horizontal field, and its calibration file says so in plain text. It is nevertheless very
+      easy to feed raw pixels through a pinhole intrinsic — the code runs, the numbers look
+      plausible, and everything downstream is wrong.
+    </p>
+    <p>
+      We made exactly this mistake in our own earlier analysis. Correcting it reduced measured
+      visual rotation error by <strong>61–73%</strong>, and cut the gyroscope's apparent advantage
+      over vision from 2.9× to 1.17×. The conclusion survived; every number supporting it did not.
+    </p>
+    <p style="margin-bottom:0" class="small muted">
+      Under an equidistant model image radius grows as f·θ, while a pinhole assumes f·tan θ. The
+      two diverge sharply toward the edge of a wide field.
+    </p>
+  </article>
+
+  <!-- finding 3 -->
+  <article class="panel" style="margin-top:28px">
+    <span class="pill">Hardware</span>
+    <h2 style="margin-top:14px">In-flight gyroscope noise is ~9× the datasheet</h2>
+    <p>
+      Calibrating the simulator against recorded flight required a gyroscope noise density of
+      about <strong>0.043&nbsp;rad/s/√Hz</strong> to reproduce measured error growth. The part is
+      specified at 0.005. The gap is almost certainly airframe vibration coupling into the sensor.
+    </p>
+    <p style="margin-bottom:0">
+      The practical consequence: simulate against datasheet figures and every inertial result you
+      produce will be optimistic by roughly an order of magnitude in noise power.
+    </p>
+  </article>
+
+  <!-- negative results -->
+  <article class="panel" style="margin-top:28px">
+    <span class="pill" style="background:rgba(250,178,25,.12);border-color:rgba(250,178,25,.3);color:#fde68a">Negative results</span>
+    <h2 style="margin-top:14px">Things we tried that did not work</h2>
+    <p>
+      Published in the same spirit as the rest. Each was killed by a cheap, decisive test rather
+      than months of development, which is the main argument for having a simulator at all.
+    </p>
+    <div class="grid grid-2" style="margin-top:20px">
+      <div class="card">
+        <h3>Depth from motion blur</h3>
+        <p class="small">
+          Blur extent encodes inverse depth, and the IMU supplies the blur direction, so only the
+          length is unknown. Four estimators — cepstral, deconvolution sharpness, gradient
+          kurtosis, spectral signature — all failed to recover blur length usably at realistic
+          magnitudes of 3–13&nbsp;px. Coded exposure improved kernel conditioning as theory
+          predicts (destroyed frequency bins fell from 32/65 to 10/65) but did not rescue the
+          estimator.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Wide-baseline "sweep stereo"</h3>
+        <p class="small">
+          A spinning drone re-points at the same direction after translating metres, which looks
+          like free wide-baseline stereo. Co-visibility collapses first: verified feature matches
+          fell to zero beyond roughly a 1&nbsp;m baseline, and at racing speed even the shortest
+          revisit interval already exceeds that.
+        </p>
+      </div>
+    </div>
+    <p class="small muted" style="margin:18px 0 0">
+      A negative result with a diagnosed mechanism is worth more than a positive one without.
+    </p>
+  </article>
+
+  <section style="margin-top:40px" class="center">
+    <div class="panel">
+      <h2>Use it for your own work</h2>
+      <p class="lead" style="margin:0 auto 22px">
+        The simulator is open source and the checks behind every number here are in the repository.
+      </p>
+      <div class="btn-row" style="justify-content:center">
+        <a class="btn btn-primary" href="simulator.html">Launch the simulator →</a>
+        <a class="btn btn-ghost" href="validation.html">See the validation</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/site.js"></script>
+</body>
+</html>

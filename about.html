@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About — Ayush Sankar</title>
+<meta name="description" content="Ayush Sankar builds tools for visual-inertial odometry research — including an open drone simulator with analytic ground truth for aggressive flight.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .avatar {
+    width: 108px; height: 108px; border-radius: 26px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    font-size: 40px; font-weight: 800; color: var(--accent-ink);
+    box-shadow: 0 12px 34px rgba(56,189,248,.22);
+  }
+  .about-hero { display: flex; gap: 30px; align-items: center; flex-wrap: wrap; }
+  .timeline { border-left: 2px solid var(--border); padding-left: 24px; margin-left: 6px; }
+  .timeline-item { position: relative; padding-bottom: 26px; }
+  .timeline-item:last-child { padding-bottom: 0; }
+  .timeline-item::before {
+    content: ''; position: absolute; left: -31px; top: 7px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+  }
+  .timeline-item h3 { margin-bottom: 4px; }
+
+  /* ── EDIT ME: remove this rule and the .todo blocks once filled in ── */
+  .todo {
+    border: 1px dashed rgba(250,178,25,.55);
+    background: rgba(250,178,25,.07);
+    border-radius: var(--radius-sm);
+    padding: 16px 18px; margin: 16px 0;
+  }
+  .todo::before {
+    content: 'I am a highschooler in Texas who loves physics, coding, music, and watching TV shows. I hope to become an aerospace engineer, working on drone projects and computer vision. If you like my work, please contact me for opportunities or feedback';
+    display: block; font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #fbbf24; margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main id="main" class="wrap section" style="padding-top:44px">
+
+  <div class="about-hero">
+    <div class="avatar" aria-hidden="true">AS</div>
+    <div style="flex:1;min-width:260px">
+      <h1 style="margin-bottom:8px">Ayush Sankar</h1>
+      <p class="lead" style="margin-bottom:14px">
+        I build tools and do research on state estimation for fast-moving robots — the
+        problem of knowing where you are when you are moving too quickly for the usual
+        methods to work.
+      </p>
+      <div class="btn-row">
+        <a class="btn btn-ghost" href="https://github.com/error404-wq" target="_blank" rel="noopener">GitHub ↗</a>
+        <a class="btn btn-ghost" href="simulator.html">See the simulator</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── EDIT ME ─────────── -->
+  <div class="todo">
+    <p class="small" style="margin:0">
+      Write two or three sentences here about who you are — where you study or work, what
+      drew you to robotics and computer vision, and what you are aiming at next. This is
+      the paragraph most visitors actually read, so it is worth writing in your own voice
+      rather than a formal bio.
+    </p>
+  </div>
+
+  <section style="margin-top:44px">
+    <h2>What I work on</h2>
+    <p>
+      Visual-inertial odometry works well until a vehicle starts moving aggressively. At a
+      few hundred degrees per second, camera frames blur past the point of usefulness,
+      feature correspondences survive only a handful of frames, and the assumptions that
+      hold a state estimator together quietly stop being true.
+    </p>
+    <p>
+      What interests me is the part that is hard to see: when a system fails under those
+      conditions, it is often unclear whether the algorithm is wrong or the measurement of
+      it is. That question is what this simulator exists to answer.
+    </p>
+
+    <div class="grid grid-3" style="margin-top:26px">
+      <div class="card">
+        <div class="card-icon" aria-hidden="true">◎</div>
+        <h3>State estimation</h3>
+        <p class="small">Visual-inertial odometry and sensor fusion under motion that breaks the usual assumptions.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" aria-hidden="true">⌁</div>
+        <h3>Event cameras</h3>
+        <p class="small">Neuromorphic sensing, and an honest accounting of where it does and does not help.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" aria-hidden="true">⚑</div>
+        <h3>Measurement rigor</h3>
+        <p class="small">Building the apparatus carefully enough that a negative result means something.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-top:48px">
+    <h2>How this project happened</h2>
+    <p>
+      It did not start as a simulator. It started as an attempt to build a better sensor-fusion
+      policy for drone racing footage — and it kept failing in ways that turned out to be more
+      interesting than the original goal.
+    </p>
+
+    <div class="timeline" style="margin-top:26px">
+      <div class="timeline-item">
+        <h3>Trying to make fusion work</h3>
+        <p class="small">
+          Several weighting strategies for blending camera and gyroscope data. Each was reasonable
+          on paper; each failed to improve accuracy. Four independent failures with the same shape
+          is usually a sign that the problem is not where you are looking.
+        </p>
+      </div>
+      <div class="timeline-item">
+        <h3>Building an instrument instead</h3>
+        <p class="small">
+          If you cannot trust the measurement, build one you can. That meant a simulator where
+          depth and pose are analytic — exact by construction rather than recorded — so that
+          errors have exactly one place to come from.
+        </p>
+      </div>
+      <div class="timeline-item">
+        <h3>Finding what was actually wrong</h3>
+        <p class="small">
+          The simulator immediately exposed two problems in the earlier work: a lens model applied
+          incorrectly, and a ground-truth reference too heavily filtered to resolve the motion
+          being measured. Both had been quietly corrupting every result.
+        </p>
+      </div>
+      <div class="timeline-item">
+        <h3>Opening it up</h3>
+        <p class="small">
+          The instrument turned out to be more broadly useful than the result it was built to
+          check, so it is open source and runs in a browser.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-top:48px">
+    <h2>How I like to work</h2>
+    <p>
+      Test the risky assumption first, and cheaply. Most ideas that sound good are wrong, and
+      the useful skill is finding that out in an afternoon rather than a quarter. Several ideas
+      behind this project were killed within hours of being proposed — that is on the
+      <a href="research.html">research page</a> too, because negative results with a diagnosed
+      mechanism are worth publishing.
+    </p>
+    <p>
+      The corollary is being honest about what a result does and does not show. Every number on
+      this site is reproducible from the repository, and the
+      <a href="validation.html">validation page</a> is as specific about the simulator's limits
+      as about its strengths.
+    </p>
+  </section>
+
+  <!-- ─────────── EDIT ME ─────────── -->
+  <section style="margin-top:48px">
+    <h2>Outside the work</h2>
+    <div class="todo">
+      <p class="small" style="margin:0">
+        Add what you actually enjoy — flying, building hardware, a sport, music, games, whatever
+        it is. Two or three concrete specifics beat a list of adjectives, and this is the section
+        that makes a personal site feel like a person rather than a CV.
+      </p>
+    </div>
+  </section>
+
+  <section style="margin-top:48px">
+    <div class="panel center">
+      <h2>Get in touch</h2>
+      <p class="lead" style="margin:0 auto 22px">
+        Happy to hear from anyone working on state estimation, event cameras, or agile flight —
+        including if you think something here is wrong.
+      </p>
+      <div class="btn-row" style="justify-content:center">
+        <a class="btn btn-primary" href="https://github.com/error404-wq" target="_blank" rel="noopener">GitHub ↗</a>
+        <!-- EDIT ME: add email / LinkedIn / X once you decide what to make public -->
+        <a class="btn btn-ghost" href="https://github.com/error404-wq/vio_simulator/issues" target="_blank" rel="noopener">Open an issue ↗</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/site.js"></script>
+</body>
+</html>

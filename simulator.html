@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulator — VIO Simulator</title>
+<meta name="description" content="Run the VIO simulator in your browser. Sweep angular rate, speed, exposure and sensor noise, and inspect the rendered frame, exact depth map, and inertial data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .sim-layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 960px) { .sim-layout { grid-template-columns: 1fr; } }
+
+  .viewer { background:#05080f; border:1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .viewer-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .tabs { display:flex; gap:4px; background:rgba(148,163,184,.09); padding:3px; border-radius:9px; }
+  .tab { padding:6px 14px; border-radius:7px; border:none; background:none; color:var(--text-3);
+         font-family:inherit; font-size:.85rem; font-weight:600; cursor:pointer; }
+  .tab[aria-selected="true"] { background:var(--surface-3); color:var(--text-1); }
+
+  .canvas-stack { display:grid; gap:14px; grid-template-columns:1fr; justify-items:center; }
+  .canvas-stack.split { grid-template-columns:1fr 1fr; }
+  @media (max-width: 700px) { .canvas-stack.split { grid-template-columns:1fr; } }
+  .canvas-cell { width:100%; }
+  .canvas-cell h4 { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em;
+                    color:var(--text-3); margin:0 0 7px; font-weight:600; }
+  canvas { width:100%; height:auto; image-rendering:pixelated; border-radius:8px;
+           background:#000; display:block; border:1px solid rgba(148,163,184,.12); }
+  .hidden { display:none !important; }
+
+  .legend { display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:.82rem; color:var(--text-2); }
+  .legend-item { display:flex; align-items:center; gap:7px; }
+  .legend-swatch { width:14px; height:3px; border-radius:2px; flex:none; }
+
+  .depth-scale { display:flex; align-items:center; gap:9px; font-size:.75rem; color:var(--text-3); margin-top:8px; }
+  .depth-bar { height:9px; flex:1; border-radius:5px;
+               background:linear-gradient(90deg,#cde2fb,#86b6ef,#3987e5,#1c5cab,#0d366b); }
+
+  /* boot overlay */
+  .boot { position:relative; }
+  .boot-overlay { background:rgba(5,8,15,.93); border:1px solid var(--border); border-radius:var(--radius);
+                  padding:34px 26px; text-align:center; }
+  .spinner { width:32px; height:32px; margin:0 auto 16px; border-radius:50%;
+             border:3px solid rgba(148,163,184,.25); border-top-color:var(--accent);
+             animation:spin .9s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  table.datatable { font-size:.82rem; }
+  details.table-view { margin-top:12px; }
+  details.table-view summary { cursor:pointer; font-size:.84rem; color:var(--text-3); padding:6px 0; }
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main id="main" class="wrap section" style="padding-top:34px">
+
+  <h1 style="font-size:clamp(1.7rem,3vw,2.3rem)">Simulator</h1>
+  <p class="lead" style="margin-bottom:8px">
+    Everything below is computed from physics in your browser. Depth and pose are analytic;
+    the sensor data is modelled on top of them.
+  </p>
+
+  <!-- boot banner: the UI stays visible and usable-looking while Python loads -->
+  <div id="boot" class="notice" style="display:flex;gap:14px;align-items:center;margin:20px 0">
+    <div class="spinner" role="status" aria-label="Loading" style="margin:0;width:24px;height:24px;border-width:2px"></div>
+    <div>
+      <strong id="boot-title">Starting the Python runtime…</strong>
+      <p class="small muted" style="margin:3px 0 0" id="boot-msg">
+        NumPy, SciPy and OpenCV are downloading into the browser sandbox — roughly
+        15–30&nbsp;seconds on a first visit, then cached. The controls below unlock when it is ready.
+      </p>
+    </div>
+  </div>
+
+  <div id="sim-ui" class="sim-layout">
+
+    <!-- ── controls ───────────────────────────────────────── -->
+    <div class="panel">
+      <h3 style="margin-bottom:4px">Flight parameters</h3>
+      <p class="small muted" style="margin-bottom:16px">Start from a preset, then adjust.</p>
+
+      <div class="chips" role="group" aria-label="Presets">
+        <button class="chip" data-preset="hover"      aria-pressed="false">Gentle hover</button>
+        <button class="chip" data-preset="cruise"     aria-pressed="true">Cruise</button>
+        <button class="chip" data-preset="racing"     aria-pressed="false">Racing</button>
+        <button class="chip" data-preset="aggressive" aria-pressed="false">Extreme</button>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="omega">Peak angular rate</label>
+          <span class="field-value"><span id="omega-val">4.0</span> rad/s</span>
+        </div>
+        <input type="range" id="omega" min="0.5" max="12" step="0.5" value="4">
+        <div class="field-hint"><span id="omega-deg">229</span> °/s — the variable you sweep</div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="speed">Forward speed</label>
+          <span class="field-value"><span id="speed-val">6.0</span> m/s</span>
+        </div>
+        <input type="range" id="speed" min="0" max="20" step="0.5" value="6">
+        <div class="field-hint">Drives translational parallax, and therefore depth observability</div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="exposure">Exposure</label>
+          <span class="field-value"><span id="exposure-val">10</span> ms</span>
+        </div>
+        <input type="range" id="exposure" min="1" max="40" step="1" value="10">
+        <div class="field-hint">Longer collects more light and more blur — the core trade</div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="noise">Read noise (σ)</label>
+          <span class="field-value"><span id="noise-val">5</span></span>
+        </div>
+        <input type="range" id="noise" min="0" max="20" step="1" value="5">
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="seed">Scene seed</label>
+          <span class="field-value"><span id="seed-val">42</span></span>
+        </div>
+        <input type="range" id="seed" min="1" max="99" step="1" value="42">
+        <div class="field-hint">Changes texture and obstacle layout</div>
+      </div>
+
+      <div class="check">
+        <input type="checkbox" id="fisheye" checked>
+        <label for="fisheye">Equidistant fisheye (~115° FOV)</label>
+      </div>
+
+      <button class="btn btn-primary" id="run-btn" style="width:100%" disabled>Run simulation</button>
+      <div class="status" id="status">Waiting for the Python runtime…</div>
+      <div class="progress"><div class="progress-bar" id="progress"></div></div>
+
+      <div style="margin-top:18px;display:grid;gap:8px">
+        <button class="btn btn-ghost" id="dl-imu" disabled style="width:100%;font-size:.86rem">Download IMU data (CSV)</button>
+        <button class="btn btn-ghost" id="dl-frame" disabled style="width:100%;font-size:.86rem">Download frame + depth (PNG)</button>
+      </div>
+    </div>
+
+    <!-- ── viewer ─────────────────────────────────────────── -->
+    <div style="display:grid;gap:20px">
+
+      <div class="viewer">
+        <div class="viewer-head">
+          <div class="tabs" role="tablist" aria-label="View">
+            <button class="tab" role="tab" id="tab-both"  aria-selected="true"  data-view="both">Both</button>
+            <button class="tab" role="tab" id="tab-rgb"   aria-selected="false" data-view="rgb">Camera</button>
+            <button class="tab" role="tab" id="tab-depth" aria-selected="false" data-view="depth">Depth</button>
+          </div>
+          <span class="small muted" id="frame-info">no frames yet</span>
+        </div>
+
+        <div class="canvas-stack split" id="canvas-stack">
+          <div class="canvas-cell" id="cell-rgb">
+            <h4>Camera — blur, noise and lens included</h4>
+            <canvas id="video-canvas" width="346" height="260"></canvas>
+          </div>
+          <div class="canvas-cell" id="cell-depth">
+            <h4>Depth — analytic, exact</h4>
+            <canvas id="depth-canvas" width="346" height="260"></canvas>
+            <div class="depth-scale">
+              <span id="depth-near">near</span>
+              <span class="depth-bar" aria-hidden="true"></span>
+              <span id="depth-far">far</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="viewer">
+        <div class="viewer-head">
+          <div>
+            <h4 style="margin:0;font-size:.95rem;color:var(--text-1);text-transform:none;letter-spacing:0">
+              Gyroscope — measured against analytic truth
+            </h4>
+            <p class="small muted" style="margin:3px 0 0">Body-frame angular rate about the dominant axis</p>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:#d95926"></span>Measured</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#3987e5"></span>Ground truth</span>
+          </div>
+        </div>
+        <div id="chart-host" style="width:100%"></div>
+        <details class="table-view">
+          <summary>View as table</summary>
+          <div class="table-wrap" style="max-height:240px;overflow:auto;margin-top:8px">
+            <table class="datatable">
+              <thead><tr><th class="num">t (s)</th><th class="num">measured</th><th class="num">truth</th></tr></thead>
+              <tbody id="imu-table"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+      <div class="panel">
+        <h3>Reading the output</h3>
+        <p class="small">
+          The <strong>camera</strong> view is what a real sensor would deliver: motion blur from
+          integrating true sub-exposures, read noise, and fisheye warping. The
+          <strong>depth</strong> view is the answer key — computed by intersecting each pixel's ray
+          with the scene analytically, so it carries no rendering error.
+        </p>
+        <p class="small" style="margin-bottom:0">
+          Push the angular rate up and watch blur wash out the camera while depth stays perfect.
+          That gap is the thing a real benchmark cannot show you, because a real benchmark has to
+          measure its ground truth too.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/site.js"></script>
+
+<!-- ── SVG chart (no matplotlib: keeps the Pyodide payload small) ── -->
+<script>
+const CHART = {
+  s1: '#3987e5',   // ground truth  — validated slot 1 (dark)
+  s2: '#d95926',   // measured      — validated slot 2 (dark)
+  grid: '#2c3444', axis: '#475569', ink: '#94a3b8',
+};
+
+function drawIMUChart(host, t, measured, truth) {
+  const W = host.clientWidth || 760, H = 240;
+  const m = { l: 52, r: 14, t: 12, b: 34 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+
+  const all = measured.concat(truth);
+  let lo = Math.min(...all), hi = Math.max(...all);
+  const pad = (hi - lo) * 0.12 || 0.5;
+  lo -= pad; hi += pad;
+  const tmax = t[t.length - 1] || 1;
+
+  const X = v => m.l + (v / tmax) * iw;
+  const Y = v => m.t + (1 - (v - lo) / (hi - lo)) * ih;
+  const path = a => a.map((v, i) => `${i ? 'L' : 'M'}${X(t[i]).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+
+  const ticks = 5, yt = [], xt = [];
+  for (let i = 0; i <= ticks; i++) yt.push(lo + (hi - lo) * i / ticks);
+  for (let i = 0; i <= 4; i++) xt.push(tmax * i / 4);
+
+  host.innerHTML = `
+<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
+     aria-label="Measured gyroscope against analytic ground truth over time">
+  ${yt.map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"
+      stroke="${CHART.grid}" stroke-width="1"/>`).join('')}
+  ${yt.map(v => `<text x="${m.l - 9}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end"
+      fill="${CHART.ink}" font-size="11" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`).join('')}
+  ${xt.map(v => `<text x="${X(v).toFixed(1)}" y="${H - 12}" text-anchor="middle"
+      fill="${CHART.ink}" font-size="11" font-family="ui-monospace,monospace">${v.toFixed(2)}</text>`).join('')}
+  <line x1="${m.l}" x2="${W - m.r}" y1="${m.t + ih}" y2="${m.t + ih}" stroke="${CHART.axis}" stroke-width="1"/>
+  <text x="${m.l - 9}" y="${m.t - 1}" text-anchor="end" fill="${CHART.ink}" font-size="10">rad/s</text>
+  <text x="${W / 2}" y="${H - 1}" text-anchor="middle" fill="${CHART.ink}" font-size="11">time (s)</text>
+  <path d="${path(measured)}" fill="none" stroke="${CHART.s2}" stroke-width="2"
+        stroke-linejoin="round" opacity="0.95"/>
+  <path d="${path(truth)}" fill="none" stroke="${CHART.s1}" stroke-width="2" stroke-linejoin="round"/>
+</svg>`;
+}
+window.drawIMUChart = drawIMUChart;
+
+/* tabs */
+document.addEventListener('click', e => {
+  const tab = e.target.closest('.tab'); if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+  const v = tab.dataset.view, stack = document.getElementById('canvas-stack');
+  const rgb = document.getElementById('cell-rgb'), dep = document.getElementById('cell-depth');
+  stack.classList.toggle('split', v === 'both');
+  rgb.classList.toggle('hidden', v === 'depth');
+  dep.classList.toggle('hidden', v === 'rgb');
+});
+
+/* presets */
+const PRESETS = {
+  hover:      { omega: 1,  speed: 1,  exposure: 20, noise: 3 },
+  cruise:     { omega: 4,  speed: 6,  exposure: 10, noise: 5 },
+  racing:     { omega: 8,  speed: 12, exposure: 6,  noise: 7 },
+  aggressive: { omega: 12, speed: 16, exposure: 4,  noise: 9 },
+};
+document.addEventListener('click', e => {
+  const chip = e.target.closest('.chip'); if (!chip) return;
+  document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+  const p = PRESETS[chip.dataset.preset]; if (!p) return;
+  for (const [k, v] of Object.entries(p)) {
+    const el = document.getElementById(k); if (!el) continue;
+    el.value = v; el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+});
+
+/* live slider readouts */
+const bind = (id, out, fmt = v => v) => {
+  const el = document.getElementById(id), o = document.getElementById(out);
+  if (!el || !o) return;
+  const upd = () => {
+    o.textContent = fmt(el.value);
+    if (id === 'omega') document.getElementById('omega-deg').textContent =
+      Math.round(parseFloat(el.value) * 57.2958);
+  };
+  el.addEventListener('input', upd); upd();
+};
+bind('omega', 'omega-val', v => parseFloat(v).toFixed(1));
+bind('speed', 'speed-val', v => parseFloat(v).toFixed(1));
+bind('exposure', 'exposure-val');
+bind('noise', 'noise-val');
+bind('seed', 'seed-val');
+
+/* download helpers, called from Python */
+window.downloadText = (name, text, mime) => {
+  const b = new Blob([text], { type: mime || 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+window.downloadCanvas = (id, name) => {
+  const c = document.getElementById(id); if (!c) return;
+  const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = name; a.click();
+};
+
+/* If the runtime never arrives (offline, blocked CDN, very slow link), say so plainly
+   rather than spinning forever. Python clears this by setting window.__pyReady. */
+setTimeout(() => {
+  if (window.__pyReady) return;
+  const boot = document.getElementById('boot');
+  if (!boot) return;
+  boot.classList.add('notice-warn');
+  boot.querySelector('.spinner')?.remove();
+  document.getElementById('boot-title').textContent = 'The Python runtime is taking longer than expected';
+  document.getElementById('boot-msg').innerHTML =
+    'It is still trying. If this persists, the PyScript CDN may be blocked on your network — ' +
+    'the simulator also runs locally: see the <a href="docs.html">documentation</a>.';
+}, 45000);
+</script>
+
+<py-config>
+  packages = ["numpy", "scipy", "opencv-python"]
+  [[fetch]]
+  files = ["sim/__init__.py", "sim/scene.py", "sim/sensors.py", "sim/trajectory.py", "sim/worlds.py"]
+</py-config>
+
+<script type="py">
+import asyncio, base64, io
+import numpy as np
+import cv2
+import js
+from js import document
+from pyscript import when
+
+from sim.scene import Camera, render
+from sim.sensors import render_blurred
+from sim.trajectory import Trajectory, ImuModel
+from sim.worlds import add_obstacles, corridor
+
+# Blue sequential ramp (single hue, light -> dark) for the depth map.
+# A rainbow map would misrepresent magnitude ordering, so it is deliberately avoided.
+_RAMP = np.array([
+    [0xcd, 0xe2, 0xfb], [0x9e, 0xc5, 0xf4], [0x6d, 0xa7, 0xec],
+    [0x39, 0x87, 0xe5], [0x25, 0x6a, 0xbf], [0x18, 0x4f, 0x95], [0x0d, 0x36, 0x6b],
+], dtype=np.float64)
+
+
+def colourise_depth(depth):
+    """Map depth to a single-hue ramp. Near = light, far = dark. Sky stays black."""
+    finite = np.isfinite(depth)
+    out = np.zeros(depth.shape + (3,), dtype=np.uint8)
+    if not finite.any():
+        return out, 0.0, 0.0
+    d = depth[finite]
+    lo, hi = float(np.percentile(d, 2)), float(np.percentile(d, 98))
+    if hi <= lo:
+        hi = lo + 1e-3
+    norm = np.clip((depth - lo) / (hi - lo), 0, 1)
+    pos = norm * (len(_RAMP) - 1)
+    i0 = np.clip(np.floor(pos).astype(int), 0, len(_RAMP) - 2)
+    frac = (pos - i0)[..., None]
+    rgb = _RAMP[i0] * (1 - frac) + _RAMP[i0 + 1] * frac
+    out[finite] = rgb[finite].astype(np.uint8)
+    return out, lo, hi
+
+
+def blit(canvas_id, img):
+    """Push an image to a canvas as a base64 PNG."""
+    ok, buf = cv2.imencode('.png', img)
+    if not ok:
+        return
+    b64 = base64.b64encode(buf).decode('utf-8')
+    js.eval(
+        "(function(){let i=new Image();"
+        "i.onload=function(){document.getElementById('%s')"
+        ".getContext('2d').drawImage(i,0,0);};"
+        "i.src='data:image/png;base64,%s';})();" % (canvas_id, b64)
+    )
+
+
+def set_status(text, kind=''):
+    el = document.getElementById('status')
+    el.innerText = text
+    el.className = 'status ' + kind
+
+
+def set_progress(frac):
+    document.getElementById('progress').style.width = f'{max(0.0, min(1.0, frac)) * 100:.0f}%'
+
+
+# runtime is up: retire the banner and unlock the controls
+js.window.__pyReady = True
+document.getElementById('boot').classList.add('hidden')
+document.getElementById('run-btn').disabled = False
+set_status('Ready — press Run simulation', 'ok')
+
+STATE = {'imu': None}
+
+
+@when('click', '#run-btn')
+async def run_simulation(event):
+    btn = document.getElementById('run-btn')
+    btn.disabled = True
+    set_progress(0)
+    try:
+        omega    = float(document.getElementById('omega').value)
+        speed    = float(document.getElementById('speed').value)
+        exposure = float(document.getElementById('exposure').value) / 1000.0
+        noise    = float(document.getElementById('noise').value)
+        seed     = int(document.getElementById('seed').value)
+        fisheye  = document.getElementById('fisheye').checked
+
+        set_status('Building scene…', 'busy')
+        await asyncio.sleep(0.01)
+
+        cam = Camera.davis346(noise_std=noise, use_fisheye=fisheye)
+        scene = add_obstacles(corridor(seed=seed), count=8, seed=100 + seed)
+        traj = Trajectory(peak_omega=omega, omega_hz=0.6, speed=speed)
+        duration = 0.6
+
+        set_status('Simulating inertial data…', 'busy')
+        set_progress(0.1)
+        await asyncio.sleep(0.01)
+
+        imu = ImuModel().sample(traj, duration=duration)
+        step = max(1, len(imu['t']) // 400)
+        t_s   = [float(v) for v in imu['t'][::step]]
+        meas  = [float(v) for v in imu['gyro'][::step, 1]]
+        truth = [float(v) for v in imu['gyro_true'][::step, 1]]
+        STATE['imu'] = (t_s, meas, truth)
+
+        js.window.drawIMUChart(document.getElementById('chart-host'),
+                               t_s, meas, truth)
+
+        rows = ''.join(
+            f'<tr><td class="num">{a:.3f}</td><td class="num">{b:+.3f}</td>'
+            f'<td class="num">{c:+.3f}</td></tr>'
+            for a, b, c in list(zip(t_s, meas, truth))[::4]
+        )
+        document.getElementById('imu-table').innerHTML = rows
+
+        fps = 12.0
+        times = np.arange(0.0, duration, 1.0 / fps)
+        set_status(f'Rendering {len(times)} frames…', 'busy')
+        await asyncio.sleep(0.01)
+
+        frames, depths = [], []
+        for i, t in enumerate(times):
+            img, dep = render_blurred(scene, cam, traj, float(t),
+                                      exposure=exposure, n_samples=4,
+                                      duration=duration)
+            frames.append(img)
+            depths.append(dep)
+            set_progress(0.1 + 0.7 * (i + 1) / len(times))
+            set_status(f'Rendering frame {i + 1}/{len(times)}…', 'busy')
+            await asyncio.sleep(0.01)
+
+        dep_rgb, lo, hi = colourise_depth(depths[0])
+        document.getElementById('depth-near').innerText = f'{lo:.1f} m'
+        document.getElementById('depth-far').innerText  = f'{hi:.1f} m'
+
+        set_status('Playing…', 'busy')
+        for i, (img, dep) in enumerate(zip(frames, depths)):
+            blit('video-canvas', img)
+            rgbd, _, _ = colourise_depth(dep)
+            blit('depth-canvas', cv2.cvtColor(rgbd, cv2.COLOR_RGB2BGR))
+            set_progress(0.8 + 0.2 * (i + 1) / len(frames))
+            await asyncio.sleep(1.0 / fps)
+
+        document.getElementById('frame-info').innerText = (
+            f'{len(frames)} frames · {cam.width}×{cam.height} · '
+            f'{"fisheye" if fisheye else "pinhole"} · {exposure * 1000:.0f} ms exposure'
+        )
+        document.getElementById('dl-imu').disabled = False
+        document.getElementById('dl-frame').disabled = False
+        set_status('Complete', 'ok')
+        set_progress(1)
+
+    except Exception as exc:
+        set_status(f'Error: {exc}', 'err')
+        print(exc)
+    finally:
+        btn.disabled = False
+
+
+@when('click', '#dl-imu')
+def download_imu(event):
+    if not STATE['imu']:
+        return
+    t_s, meas, truth = STATE['imu']
+    lines = ['time_s,gyro_measured_rad_s,gyro_truth_rad_s']
+    lines += [f'{a:.6f},{b:.6f},{c:.6f}' for a, b, c in zip(t_s, meas, truth)]
+    js.window.downloadText('vio_sim_imu.csv', '\n'.join(lines), 'text/csv')
+
+
+@when('click', '#dl-frame')
+def download_frame(event):
+    js.window.downloadCanvas('video-canvas', 'vio_sim_camera.png')
+    js.window.downloadCanvas('depth-canvas', 'vio_sim_depth.png')
+</script>
+</body>
+</html>
