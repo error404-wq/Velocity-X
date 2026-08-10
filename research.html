@@ -17,25 +17,21 @@
 
   <h1>Research</h1>
   <p class="lead">
-    Findings that came out of building this simulator. Several were surprises, and a
-    couple overturned earlier conclusions of our own.
+    Building this simulator led to some really interesting discoveries. Some of these actually proved our earlier assumptions completely wrong!
   </p>
 
   <!-- finding 1 -->
   <article class="panel" style="margin-top:36px">
     <span class="pill">Methodology</span>
-    <h2 style="margin-top:14px">Reference bandwidth is a first-class benchmark parameter</h2>
+    <h2 style="margin-top:14px">The "Ground Truth" is often wrong</h2>
     <p>
-      Motion benchmarks record ground truth with motion-capture or total-station rigs, and
-      everyone treats that reference as effectively exact. Measured spectrally, the reference
-      orientation on the aggressive-flight sequences we examined is heavily low-pass filtered —
-      retaining almost nothing above 15&nbsp;Hz — while the vehicle genuinely carries angular-rate
-      content well beyond that, and the camera is evaluated at 30&nbsp;Hz.
+      Most robotics benchmarks use motion-capture cameras to record "ground truth" data, and everyone assumes 
+      this data is perfectly exact. However, we discovered that these systems heavily smooth out fast movements. 
+      If a drone rapidly spins, the motion-capture system just records a blurry, smoothed version of what actually happened.
     </p>
     <p>
-      Because both the camera and the gyroscope observe the true motion but are scored against a
-      smoothed reference, the discarded motion becomes a <em>common error injected into both</em>.
-      In controlled simulation, degrading an exact reference reproduces the effect precisely.
+      Because of this, if your algorithm perfectly tracks a fast spin, it will actually be scored as "wrong" 
+      because it disagrees with the smoothed-out motion-capture data! 
     </p>
     <div class="table-wrap" style="margin:22px 0">
       <table>
@@ -51,15 +47,13 @@
       </table>
     </div>
     <p>
-      Two things follow. Apparent sensor error inflates by up to <strong>10×</strong> at aggressive
-      rates. And a bandwidth-limited reference <strong>manufactures correlation between sensors
-      whose errors are genuinely independent</strong> — with an exact reference the error vectors
-      are 83° apart, which is orthogonal; at 2&nbsp;Hz they collapse to 28°.
+      This has two huge consequences. First, algorithms look up to <strong>10×</strong> worse than they actually are.
+      Second, it makes it look like different sensors (like a camera and a gyroscope) are making the exact same errors at the exact same time, 
+      even when they are completely independent.
     </p>
     <p style="margin-bottom:0">
-      That second effect is the damaging one, because it silently caps measured sensor-fusion gain.
-      A fusion study run against such a reference will conclude fusion does not help, when the
-      underlying errors were independent all along.
+      If you are trying to write an algorithm that combines data from multiple sensors (sensor fusion), 
+      bad ground truth data will make it seem like your algorithm isn't working, even if it is perfect.
     </p>
   </article>
 
@@ -68,15 +62,13 @@
     <span class="pill">Practice</span>
     <h2 style="margin-top:14px">The fisheye trap</h2>
     <p>
-      Racing drones fly wide lenses. The sensor modelled here is equidistant with a ~115°
-      horizontal field, and its calibration file says so in plain text. It is nevertheless very
-      easy to feed raw pixels through a pinhole intrinsic — the code runs, the numbers look
-      plausible, and everything downstream is wrong.
+      Racing drones use ultra-wide fisheye lenses. It's incredibly easy to accidentally feed these fisheye images 
+      into an algorithm that expects standard camera lenses. The scary part? The code won't crash! It will keep running, 
+      spit out numbers that look somewhat believable, but every single output will be completely wrong.
     </p>
     <p>
-      We made exactly this mistake in our own earlier analysis. Correcting it reduced measured
-      visual rotation error by <strong>61–73%</strong>, and cut the gyroscope's apparent advantage
-      over vision from 2.9× to 1.17×. The conclusion survived; every number supporting it did not.
+      We actually made this exact mistake in our own earlier research! When we fixed the bug and properly undistorted 
+      the fisheye images, our tracking errors dropped by massive <strong>61–73%</strong>. 
     </p>
     <p style="margin-bottom:0" class="small muted">
       Under an equidistant model image radius grows as f·θ, while a pinhole assumes f·tan θ. The

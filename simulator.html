@@ -68,11 +68,8 @@
   <div id="boot" class="notice" style="display:flex;gap:14px;align-items:center;margin:20px 0">
     <div class="spinner" role="status" aria-label="Loading" style="margin:0;width:24px;height:24px;border-width:2px"></div>
     <div>
-      <strong id="boot-title">Starting the Python runtime…</strong>
-      <p class="small muted" style="margin:3px 0 0" id="boot-msg">
-        NumPy, SciPy and OpenCV are downloading into the browser sandbox — roughly
-        15–30&nbsp;seconds on a first visit, then cached. The controls below unlock when it is ready.
-      </p>
+      <h3 id="boot-title">Initializing simulator engine...</h3>
+      <p id="boot-msg">Loading Python runtime, OpenCV, and mathematical models.<br>This usually takes a few seconds but can take longer on the first visit.<br>Please wait!</p>
     </div>
   </div>
 
@@ -345,7 +342,7 @@ setTimeout(() => {
 </script>
 
 <py-config>
-  packages = ["numpy", "scipy", "opencv-python"]
+  packages = ["numpy", "opencv-python"]
   [[fetch]]
   files = ["sim/__init__.py", "sim/scene.py", "sim/sensors.py", "sim/trajectory.py", "sim/worlds.py"]
 </py-config>

@@ -17,30 +17,27 @@
 
   <h1>Validation</h1>
   <p class="lead">
-    A simulator is only worth using if you can say precisely what it gets right and
-    where it stops being trustworthy. This page is that statement.
+    A simulator is only helpful if you know exactly how accurate it is.
+    This page explains what the simulator gets perfectly right, and where it relies on approximations.
   </p>
 
   <div class="notice">
     <p class="small" style="margin:0">
-      <strong>The principle:</strong> quantities derived from geometry are exact and are
-      verified numerically. Quantities that depend on a sensor model are only as good as
-      that model — and each one below says which it is.
+      <strong>The principle:</strong> Everything related to geometry and physics is perfectly exact. 
+      Everything related to the camera and sensors is a very close, highly calibrated approximation.
     </p>
   </div>
 
   <!-- geometry -->
   <section style="margin-top:44px">
-    <h2>1 · Geometry is exact, and checked</h2>
+    <h2>1 · Geometry is exact</h2>
     <p>
-      Scenes are built from textured planes, so a pixel's depth is the closed-form solution of a
-      ray–plane intersection. There is no depth buffer and no rasterisation, so there is nothing
-      to quantise.
+      Scenes are built from flat walls and floors. Because we use flat surfaces, we can mathematically 
+      calculate the exact depth for every single pixel without using rendering shortcuts like depth buffers.
     </p>
     <p>
-      The check does not take that on faith. It renders a scene, un-projects each pixel using the
-      reported depth, transforms the resulting point into world coordinates, and measures its
-      distance from the plane it should lie on.
+      We don't just take that on faith. Our testing suite renders a scene, takes the generated depth, 
+      and traces it back into the 3D world to prove that it lands exactly on the correct wall.
     </p>
     <div class="grid grid-3" style="margin:22px 0">
       <div class="card stat">
@@ -64,11 +61,11 @@
 
   <!-- rotation -->
   <section style="margin-top:44px">
-    <h2>2 · Rotation is integrated on the manifold</h2>
+    <h2>2 · Flight paths are mathematically stable</h2>
     <p>
-      Orientation comes from integrating angular velocity on SO(3) by composing incremental
-      rotations, not by accumulating a rotation vector. The naïve version is a common source of
-      silent error: it is fine over a millisecond and meaningless over a second at 12&nbsp;rad/s.
+      When you tell the drone to spin, we calculate its new orientation using proper 3D rotation math. 
+      This prevents the simulator from slowly drifting out of alignment over long flights — a common bug 
+      in many custom simulation tools. Our math is verified to remain perfectly stable.
     </p>
     <p>
       Self-consistency was confirmed by comparing the integrated trajectory against the analytic

@@ -25,7 +25,7 @@
 
 <main id="main" class="wrap section" style="padding-top:40px">
   <h1>Documentation</h1>
-  <p class="lead">Get from clone to your first exact-depth frame in about two minutes.</p>
+  <p class="lead">Learn how to use the simulator and easily generate your own drone datasets.</p>
 
   <div class="doc-layout" style="margin-top:38px">
     <nav class="toc" aria-label="On this page">
@@ -43,13 +43,12 @@
 
     <div>
       <h2 id="install">Installation</h2>
-      <p>Pure Python with three dependencies. No build step, no GPU, no ROS.</p>
-<pre><code>git clone https://github.com/error404-wq/vio_simulator.git
+      <p>You can run the simulator locally in Python if you want to write your own scripts. It requires no complex build tools or GPUs.</p>
+<pre><code>git clone https://github.com/ayushsankar12/vio_simulator.git
 cd vio_simulator
-pip install numpy scipy opencv-python</code></pre>
+pip install numpy opencv-python</code></pre>
       <p class="small muted">
-        Tested on Python 3.10+. The browser build runs the identical <code>sim/</code> package
-        through PyScript, so results match.
+        Tested on Python 3.10+. The live web version uses the exact same code, so you'll get identical results whether you run it locally or in the browser.
       </p>
 
       <h2 id="quickstart">Quick start</h2>
@@ -86,8 +85,7 @@ image, depth = render_blurred(scene, cam, traj, t_center=0.5,
 
       <h2 id="scenes">Scenes</h2>
       <p>
-        A scene is a list of textured planes. Planarity is what buys closed-form depth, so it is a
-        deliberate constraint rather than a shortcut.
+        A scene is made of flat, textured walls and floors. We use flat surfaces so we can calculate the depth mathematically perfectly for every single pixel.
       </p>
 <pre><code>from sim.worlds import corridor, add_obstacles, natural_texture
 
@@ -112,9 +110,8 @@ scene.add(wall)</code></pre>
 
       <h2 id="trajectories">Trajectories</h2>
       <p>
-        Trajectories are defined by their <em>angular velocity</em>, which is then integrated on
-        SO(3). That is what makes peak angular rate an independent variable you can sweep, and it
-        means ground-truth angular velocity is exact rather than differentiated from poses.
+        We define flight paths based on how fast the drone spins (angular velocity). 
+        This guarantees the ground-truth gyroscope data is perfectly exact, rather than estimated.
       </p>
 <pre><code>traj = Trajectory(
     peak_omega=8.0,       # rad/s — the variable to sweep
@@ -124,9 +121,8 @@ scene.add(wall)</code></pre>
     broadband_rms=0.47,   # realistic high-frequency content, rad/s RMS
 )</code></pre>
       <p>
-        <code>broadband_rms</code> adds attitude-loop and airframe content above 5&nbsp;Hz. Real
-        racing drones carry roughly 0.47&nbsp;rad/s RMS there. Leave it at zero for a clean
-        analytic manoeuvre; set it when high-frequency realism matters.
+        <code>broadband_rms</code> adds realistic high-frequency vibrations that real drones experience during flight. 
+        Leave it at zero for a smooth flight, or turn it up if you want to test how your algorithm handles realistic noise.
       </p>
 
       <h2 id="camera">Camera &amp; lens</h2>
@@ -135,11 +131,9 @@ print(cam.K)                       # intrinsics
 print(cam.width, cam.height)       # 346 x 260</code></pre>
       <div class="notice notice-warn">
         <p class="small" style="margin:0">
-          <strong>Lens model matters more than people expect.</strong> With
-          <code>use_fisheye=True</code> the camera is equidistant with a ~115° horizontal field.
-          Applying a pinhole intrinsic to those pixels is a real and easy mistake — in our own
-          earlier analysis it inflated measured rotation error by 61–73%. Undistort into
-          normalised coordinates before doing geometry.
+          <strong>Lens model matters!</strong> If you set
+          <code>use_fisheye=True</code>, the camera simulates an ultra-wide fisheye lens. Make sure you undistort the images 
+          before feeding them into an algorithm that expects a standard pinhole camera, otherwise your tracking will fail.
         </p>
       </div>
 

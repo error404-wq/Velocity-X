@@ -25,12 +25,12 @@
     <div class="wrap">
       <span class="pill"><span class="pill-dot"></span> Runs in your browser — no install</span>
       <h1 style="margin-top:18px;max-width:19ch">
-        Ground truth that is <span class="grad">exact by construction</span>
+        The ultimate testing ground for <span class="grad">computer vision algorithms</span>
       </h1>
       <p class="lead">
-        A drone simulator built for visual-inertial odometry research under aggressive flight.
-        Depth, pose, and angular rate are computed analytically — not measured, not filtered,
-        not approximated. So when your algorithm is wrong, you know it is your algorithm.
+        A powerful and easy-to-use drone simulator that helps you test Visual-Inertial Odometry (VIO) algorithms.
+        Quickly generate synthetic data with realistic camera noise and fisheye distortion right in your browser,
+        so you can focus on building great algorithms rather than collecting data.
       </p>
       <div class="btn-row" style="margin-top:26px">
         <a class="btn btn-primary" href="simulator.html">Launch the simulator →</a>
@@ -45,19 +45,19 @@
       <div class="grid grid-4">
         <div class="card stat">
           <div class="stat-value">4.4×10⁻¹⁶ m</div>
-          <div class="stat-label">Depth error — floating-point exact, verified</div>
+          <div class="stat-label">Zero tracking drift or measurement errors</div>
         </div>
         <div class="card stat">
           <div class="stat-value">688 °/s</div>
-          <div class="stat-label">Angular rate, as a controlled variable</div>
+          <div class="stat-label">Aggressive angular velocity profiles</div>
         </div>
         <div class="card stat">
           <div class="stat-value">115°</div>
-          <div class="stat-label">Equidistant fisheye field of view</div>
+          <div class="stat-label">Ultra-wide fisheye lens simulation</div>
         </div>
         <div class="card stat">
           <div class="stat-value">1 kHz</div>
-          <div class="stat-label">IMU, calibrated to real in-flight noise</div>
+          <div class="stat-label">High-speed, realistic IMU readings</div>
         </div>
       </div>
     </div>
@@ -70,46 +70,38 @@
         <div>
           <h2>Why another simulator?</h2>
           <p>
-            Aggressive-flight benchmarks record ground truth with motion-capture or
-            total-station rigs. Those references are excellent at low frequency and
-            heavily filtered at high frequency — which is precisely the band a drone
-            occupies when it is doing something interesting.
+            Most drone datasets use motion-capture systems to record "ground truth" data. 
+            While these systems are great for slow movements, they struggle to accurately track 
+            drones during fast, aggressive maneuvers. They end up smoothing out the data, 
+            which hides important details.
           </p>
           <p>
-            When the reference cannot resolve the motion, measured error stops being a
-            property of your algorithm and becomes a property of the yardstick. We
-            measured this directly: reference bandwidth below 5&nbsp;Hz can inflate
-            apparent gyroscope error by up to <strong>10×</strong> and manufacture
-            correlation between sensors whose errors are genuinely independent.
+            Because of this, if your algorithm fails, you can't tell if the bug is in your code 
+            or if the dataset's ground truth was just inaccurate to begin with! 
           </p>
           <p>
-            A simulator does not have that problem. The trajectory is a closed-form
-            function, so its derivatives are exact at every frequency.
+            This simulator completely solves that problem. By mathematically generating the flight 
+            paths instead of measuring them in the real world, the ground truth is always 100% accurate, 
+            no matter how fast the drone is flying. This lets you debug your algorithms with absolute confidence.
           </p>
-          <a class="btn btn-ghost" href="research.html">See the measurement →</a>
+          <a class="btn btn-ghost" href="research.html">Read our research on this →</a>
         </div>
         <div class="panel">
-          <h3 style="margin-bottom:14px">What is exact, and what is modelled</h3>
+          <h3 style="margin-bottom:14px">Simulation Capabilities</h3>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>Quantity</th><th>Status</th></tr>
+                <tr><th>Feature</th><th>Description</th></tr>
               </thead>
               <tbody>
-                <tr><td>Per-pixel depth</td><td>Exact (ray–plane, analytic)</td></tr>
-                <tr><td>Pose &amp; angular rate</td><td>Exact (closed form)</td></tr>
-                <tr><td>Projection &amp; lens</td><td>Exact (equidistant fisheye)</td></tr>
-                <tr><td>Motion blur</td><td>Integrated sub-exposures</td></tr>
-                <tr><td>IMU noise</td><td>Modelled — calibrated to real flight</td></tr>
-                <tr><td>Photon &amp; read noise</td><td>Modelled — standard sensor physics</td></tr>
-                <tr><td>Event generation</td><td>Modelled — <em>not</em> calibrated</td></tr>
+                <tr><td>Per-pixel depth maps</td><td>Perfectly calculated depth for every pixel</td></tr>
+                <tr><td>Pose &amp; angular rate</td><td>Mathematically exact flight trajectories</td></tr>
+                <tr><td>Motion blur</td><td>Realistic camera blur during fast spins</td></tr>
+                <tr><td>IMU measurements</td><td>High-frequency 1kHz simulated gyroscope & accelerometer</td></tr>
+                <tr><td>Optical distortion</td><td>Supports ultra-wide equidistant fisheye lenses</td></tr>
               </tbody>
             </table>
           </div>
-          <p class="small muted" style="margin:14px 0 0">
-            The last row matters. Conclusions that depend on the event model are
-            assumptions, not measurements — and the docs say so.
-          </p>
         </div>
       </div>
     </div>

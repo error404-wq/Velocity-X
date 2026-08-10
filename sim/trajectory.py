@@ -11,7 +11,19 @@ the ground-truth angular velocity is exact -- there is no numerical
 differentiation noise anywhere in the pipeline.
 """
 import numpy as np
-from scipy.spatial.transform import Rotation
+
+def rotation_matrix_from_rotvec(w):
+    """Compute 3x3 rotation matrix from a rotation vector using Rodrigues' formula."""
+    theta = np.linalg.norm(w)
+    if theta < 1e-12:
+        return np.eye(3)
+    k = w / theta
+    K = np.array([
+        [0, -k[2], k[1]],
+        [k[2], 0, -k[0]],
+        [-k[1], k[0], 0]
+    ])
+    return np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
 
 
 class Trajectory:
@@ -123,7 +135,7 @@ class Trajectory:
         for i in range(1, n):
             dt = t[i] - t[i - 1]
             w_mid = 0.5 * (w[i] + w[i - 1])
-            R[i] = R[i - 1] @ Rotation.from_rotvec(w_mid * dt).as_matrix()
+            R[i] = R[i - 1] @ rotation_matrix_from_rotvec(w_mid * dt)
         self._t_cache, self._R_cache = t, R
 
     def rotation(self, t, duration=None):
@@ -148,7 +160,7 @@ class Trajectory:
                 out[k] = self._R_cache[i]
             else:
                 w_mid = self.omega(np.array([self._t_cache[i]]))[0]
-                out[k] = self._R_cache[i] @ Rotation.from_rotvec(w_mid * dt).as_matrix()
+                out[k] = self._R_cache[i] @ rotation_matrix_from_rotvec(w_mid * dt)
         return out
 
     def pose(self, t, duration=None):
