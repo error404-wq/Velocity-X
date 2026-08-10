@@ -20,7 +20,30 @@
     Building this simulator led to some really interesting discoveries. Some of these actually proved our earlier assumptions completely wrong!
   </p>
 
-  <!-- finding 1 -->
+  <!-- finding 1 (New Paper) -->
+  <article class="panel" style="margin-top:36px">
+    <span class="pill">New Paper</span>
+    <h2 style="margin-top:14px">When Blur is a Feature, Not a Bug</h2>
+    <p>
+      Event cameras are incredibly fast, but figuring out the 3D depth of objects using them is very hard. 
+      Conventional wisdom says that motion blur on standard cameras destroys our ability to calculate depth. 
+      However, we discovered a mathematically counter-intuitive result: <strong>motion blur is not a bug, but a necessary mathematical bridge!</strong>
+    </p>
+    <p>
+      By combining the temporal integration of an event camera with the spatial averaging of a motion-blurred camera frame, 
+      we proved that the errors perfectly cancel out. In our simulations (flying at 10 m/s), using a motion-blurred 
+      image actually <em>improved</em> our depth accuracy by over 20% compared to a perfectly sharp image!
+    </p>
+    <div style="margin: 22px 0; text-align: center">
+        <img src="blur_vs_error.png" alt="Depth Error vs Motion Blur" style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border)">
+        <p class="small muted" style="margin-top: 8px;">As motion blur (exposure time) increases, depth error significantly decreases, confirming the mathematical theory.</p>
+    </div>
+    <p style="margin-bottom:0">
+      This paper provides a closed-form, single-pixel depth estimator and dispels the myth that motion blur is strictly detrimental to visual-inertial systems.
+    </p>
+  </article>
+
+  <!-- finding 2 -->
   <article class="panel" style="margin-top:36px">
     <span class="pill">Methodology</span>
     <h2 style="margin-top:14px">The "Ground Truth" is often wrong</h2>
