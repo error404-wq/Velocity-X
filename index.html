@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect VIO Simulator</title>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; }
+        .panel { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .slider-container { margin: 10px 0; }
+        #canvas-container { display: flex; justify-content: center; background: #000; padding: 10px; border-radius: 8px; }
+        canvas { border: 1px solid #333; }
+    </style>
+</head>
+<body>
+    <h1>VIO Simulator: Aggressive Flight</h1>
+    <p>This simulator renders physically accurate visual and inertial data with exact analytic depth, motion blur, and equidistant fisheye distortion.</p>
+
+    <py-config>
+        packages = ["numpy", "scipy", "opencv-python", "matplotlib"]
+        [[fetch]]
+        from = "sim"
+        to = "sim"
+        files = ["__init__.py", "scene.py", "sensors.py", "trajectory.py", "worlds.py"]
+    </py-config>
+
+    <div class="panel">
+        <h3>Simulation Parameters</h3>
+        <div class="slider-container">
+            <label>Peak Angular Rate (rad/s): <span id="omega-val">2.0</span></label><br>
+            <input type="range" id="omega" min="0.5" max="10.0" step="0.5" value="2.0" oninput="document.getElementById('omega-val').innerText=this.value">
+        </div>
+        <div class="slider-container">
+            <label>Camera Noise (Std Dev): <span id="noise-val">5.0</span></label><br>
+            <input type="range" id="noise" min="0.0" max="50.0" step="1.0" value="5.0" oninput="document.getElementById('noise-val').innerText=this.value">
+        </div>
+        <div class="slider-container">
+            <label><input type="checkbox" id="fisheye" checked> Enable Fisheye Distortion (Equidistant)</label>
+        </div>
+        <button id="run-btn" py-click="run_simulation()">Run Simulation</button>
+        <p id="status">Status: Ready.</p>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="video-canvas" width="346" height="260"></canvas>
+    </div>
+
+    <div id="plot-container"></div>
+
+    <py-script>
+import asyncio
+import pyodide
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from js import document
+from sim.scene import Camera, Scene
+from sim.sensors import render_blurred
+from sim.trajectory import Trajectory, ImuModel
+from sim.worlds import add_obstacles, corridor
+import io
+import base64
+
+async def run_simulation():
+    status = document.getElementById("status")
+    btn = document.getElementById("run-btn")
+    btn.disabled = True
+    status.innerText = "Status: Initializing scene..."
+    
+    try:
+        # Read parameters
+        omega = float(document.getElementById("omega").value)
+        noise = float(document.getElementById("noise").value)
+        use_fisheye = document.getElementById("fisheye").checked
+        
+        cam = Camera.davis346(noise_std=noise, use_fisheye=use_fisheye)
+        scene = add_obstacles(corridor(seed=42), count=8, seed=142)
+        traj = Trajectory(peak_omega=omega, omega_hz=0.6, speed=5.0)
+        
+        fps = 30.0
+        duration = 1.0
+        frame_times = np.arange(0, duration, 1.0 / fps)
+        
+        status.innerText = f"Status: Rendering {len(frame_times)} frames... (This may take a moment in WASM)"
+        await asyncio.sleep(0.1)
+        
+        frames = []
+        for i, t in enumerate(frame_times):
+            img, _ = render_blurred(scene, cam, traj, t, exposure=0.010, n_samples=4, duration=duration)
+            frames.append(img)
+            if i % 5 == 0:
+                status.innerText = f"Status: Rendering {i}/{len(frame_times)}..."
+                await asyncio.sleep(0.01)
+                
+        status.innerText = "Status: Playing..."
+        canvas = document.getElementById("video-canvas")
+        ctx = canvas.getContext("2d")
+        
+        for img in frames:
+            success, encoded_image = cv2.imencode('.png', img)
+            b64_str = base64.b64encode(encoded_image).decode('utf-8')
+            
+            js_code = f"""
+            let img = new Image();
+            img.onload = function() {{ document.getElementById('video-canvas').getContext('2d').drawImage(img, 0, 0); }};
+            img.src = 'data:image/png;base64,{b64_str}';
+            """
+            import js
+            js.eval(js_code)
+            
+            await asyncio.sleep(1.0 / fps)
+            
+        status.innerText = "Status: Done playing."
+        
+    except Exception as e:
+        status.innerText = f"Error: {str(e)}"
+        print(e)
+    finally:
+        btn.disabled = False
+    </py-script>
+</body>
+</html>
