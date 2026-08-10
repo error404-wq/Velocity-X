@@ -336,9 +336,9 @@ setTimeout(() => {
   boot.querySelector('.spinner')?.remove();
   document.getElementById('boot-title').textContent = 'The Python runtime is taking longer than expected';
   document.getElementById('boot-msg').innerHTML =
-    'It is still trying. If this persists, the PyScript CDN may be blocked on your network — ' +
+    'It is still trying. The OpenCV package is large and can take a few minutes on some connections. If this persists, the PyScript CDN may be blocked on your network — ' +
     'the simulator also runs locally: see the <a href="docs.html">documentation</a>.';
-}, 45000);
+}, 120000);
 </script>
 
 <py-config>
@@ -491,8 +491,8 @@ async def run_simulation(event):
             await asyncio.sleep(1.0 / fps)
 
         document.getElementById('frame-info').innerText = (
-            f'{len(frames)} frames · {cam.width}×{cam.height} · '
-            f'{"fisheye" if fisheye else "pinhole"} · {exposure * 1000:.0f} ms exposure'
+            f'{len(frames)} frames - {cam.width}x{cam.height} - '
+            f'{"fisheye" if fisheye else "pinhole"} - {exposure * 1000:.0f} ms exposure'
         )
         document.getElementById('dl-imu').disabled = False
         document.getElementById('dl-frame').disabled = False
