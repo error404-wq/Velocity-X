@@ -10,7 +10,7 @@ const NAV_LINKS = [
   { href: 'about.html',      label: 'About' },
 ];
 
-const REPO = 'https://github.com/error404-wq/vio_simulator';
+const REPO = 'https://github.com/ayushsankar12/Velocity-X';
 
 function currentPage() {
   const file = window.location.pathname.split('/').pop();
@@ -30,7 +30,7 @@ function buildNav() {
   <div class="nav-inner">
     <a class="brand" href="index.html">
       <span class="brand-mark" aria-hidden="true">V</span>
-      <span>VIO&nbsp;Simulator</span>
+      <span>Velocity&nbsp;X</span>
     </a>
     <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks" aria-label="Toggle navigation">☰</button>
     <div class="nav-links" id="navLinks">
@@ -49,7 +49,7 @@ function buildFooter() {
       <div>
         <div class="brand" style="margin-bottom:10px">
           <span class="brand-mark" aria-hidden="true">V</span>
-          <span>VIO&nbsp;Simulator</span>
+          <span>Velocity&nbsp;X</span>
         </div>
         <p class="small" style="max-width:42ch">
           An open simulator for visual-inertial odometry under aggressive flight —

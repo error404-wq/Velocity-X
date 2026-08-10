@@ -1,4 +1,4 @@
-# VIO Simulator
+# Velocity X
 
 An open drone simulator for visual-inertial odometry research under aggressive flight,
 with ground truth that is **exact by construction** rather than measured.
@@ -39,7 +39,7 @@ measurements. See [Validation](https://error404-wq.github.io/vio_simulator/valid
 ## Install
 
 ```bash
-git clone https://github.com/error404-wq/vio_simulator.git
+git clone https://github.com/ayushsankar12/Velocity-X.git
 cd vio_simulator
 pip install numpy scipy opencv-python
 ```
