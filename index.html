@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfect VIO Simulator</title>
-    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
-    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         body {
@@ -154,7 +154,7 @@
                 <label for="fisheye">Equidistant Fisheye</label>
             </div>
             
-            <button id="run-btn" py-click="on_click">Run Simulation</button>
+            <button id="run-btn">Run Simulation</button>
             <div id="status">Ready</div>
         </div>
 
@@ -173,24 +173,22 @@
         files = ["sim/__init__.py", "sim/scene.py", "sim/sensors.py", "sim/trajectory.py", "sim/worlds.py"]
     </py-config>
 
-    <py-script>
+    <script type="py">
 import asyncio
 import pyodide
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from js import document
-from pyscript import display
+from pyscript import display, when
 from sim.scene import Camera
 from sim.sensors import render_blurred
 from sim.trajectory import Trajectory, ImuModel
 from sim.worlds import add_obstacles, corridor
 import base64
 
-def on_click(event):
-    asyncio.ensure_future(run_simulation())
-
-async def run_simulation():
+@when("click", "#run-btn")
+async def run_simulation(event):
     status = document.getElementById("status")
     btn = document.getElementById("run-btn")
     btn.disabled = True
@@ -261,6 +259,6 @@ async def run_simulation():
         print(e)
     finally:
         btn.disabled = False
-    </py-script>
+    </script>
 </body>
 </html>
